@@ -17,9 +17,9 @@
   --text-main: #263238; 
   --text-sub: #546e7a;
   --card-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  --header-height: 120px; 
   --highlight-color: #ffeb3b;
   --highlight-text: #d81b60;
-  /* 計算 sticky 總高度供 scroll margin 使用 (約略值) */
   --sticky-offset: 185px; 
 }
 
@@ -32,22 +32,18 @@ body {
   padding-bottom: 100px;
 }
 
-/* --- [NEW] STICKY WRAPPER (關鍵修正) --- */
-/* 將 Header 與 Nav 包在一起，確保滑動時不分離、不擠壓 */
+/* --- STICKY WRAPPER --- */
 .sticky-header-group {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+  position: sticky; top: 0; z-index: 1000;
   background: #fff;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05); /* 陰影移到最外層 */
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
 /* --- HEADER --- */
 header {
-  /* 移除 sticky，改由外層控制 */
   position: relative; 
   display: flex; flex-direction: column; align-items: center;
-  padding: 12px 15px 5px; /* 調整內距 */
+  padding: 12px 15px 5px;
 }
 
 .header-top { 
@@ -91,18 +87,13 @@ h1 { margin: 0; font-size: 20px; color: var(--primary); font-weight: 900; line-h
 }
 
 mark.highlight {
-  background-color: var(--highlight-color);
-  color: var(--highlight-text);
+  background-color: var(--highlight-color); color: var(--highlight-text);
   border-radius: 2px; padding: 0 2px; font-weight: 900;
 }
 
 /* --- QUICK NAV --- */
 .quick-nav-wrap {
-  /* 移除 sticky 與 top 計算，直接跟隨 header */
-  width: 100%;
-  padding: 5px 0 10px; /* 下方留點空間 */
-  background: #fff; /* 與 Header 融合 */
-  border-top: 1px solid transparent; 
+  width: 100%; padding: 5px 0 10px; background: #fff; border-top: 1px solid transparent; 
 }
 .quick-nav {
   display: flex; justify-content: flex-start; gap: 6px;
@@ -112,7 +103,7 @@ mark.highlight {
 
 .nav-pill {
   flex-shrink: 0; white-space: nowrap; padding: 6px 14px; border-radius: 20px;
-  font-size: 13px; font-weight: 500; color: var(--text-sub); background: #f5f5f5; /* 恢復淺灰底增加對比 */
+  font-size: 13px; font-weight: 500; color: var(--text-sub); background: #f5f5f5;
   border: 1px solid #e0e0e0; cursor: pointer; transition: all 0.2s; 
   display: flex; align-items: center; gap: 4px;
 }
@@ -126,8 +117,7 @@ mark.highlight {
   margin: 20px 15px 25px; 
   background: #fff; padding: 15px; border-radius: 16px; 
   border: 1px solid #f0f0f0; box-shadow: var(--card-shadow);
-  display: none; 
-  scroll-margin-top: var(--sticky-offset); /* 使用變數統一調整 */
+  display: none; scroll-margin-top: var(--sticky-offset);
 }
 .rank-head { margin-bottom: 12px; border-bottom: 1px solid #f5f5f5; padding-bottom: 8px; }
 .rank-title { font-size: 16px; font-weight: 900; color: #d81b60; display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
@@ -151,10 +141,7 @@ mark.highlight {
 
 /* --- MAIN CONTENT --- */
 main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
-.cat-section { 
-  margin-bottom: 30px; 
-  scroll-margin-top: var(--sticky-offset); /* 自動避開 Sticky Header 高度 */
-}
+.cat-section { margin-bottom: 30px; scroll-margin-top: var(--sticky-offset); }
 .cat-title {
   font-size: 18px; font-weight: 900; color: #37474f;
   border-left: 5px solid var(--primary); padding-left: 10px; margin-bottom: 12px;
@@ -288,7 +275,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   <header>
     <div class="header-top">
       <div>
-        <h1 class="text-center">TTL Bio-Tech・健康美學</h1>
+        <h1 class="text-center">TTL 嚴選・健康美學</h1>
         <span class="subtitle">台酒生技 產品銷售輔助</span>
       </div>
       <a href="print.html" target="_blank" class="btn-pdf">
@@ -343,9 +330,12 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 <div id="toast"><span class="material-icons-round">check_circle</span> 已複製銷售文案</div>
 
 <script>
-const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv";
-const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv";
-const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv";
+// [UPDATED] Anti-Cache Config
+// 加入 &t=Date.now() 強制瀏覽器抓取最新版本，不讀快取
+const TS = Date.now();
+const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
+const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
+const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
 const PROXY = (url) => "https://corsproxy.io/?" + encodeURIComponent(url);
 
 const SECTIONS = {
@@ -598,7 +588,7 @@ function copyShare(btn, text) {
 function scrollToId(id) {
   const el = document.getElementById(id);
   if(!el) return;
-  // Offset updated to variable logic
+  // Offset calculation updated for sticky wrapper
   const offsetPosition = el.getBoundingClientRect().top + window.pageYOffset - 185;
   window.scrollTo({ top: offsetPosition, behavior: "smooth" });
 }
