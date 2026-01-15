@@ -1,5 +1,5 @@
-/* sw.js - Service Worker 版本 2 */
-const CACHE_NAME = 'ttl-pwa-v2'; // 修改這裡的版本號來強制更新
+/* sw.js - Service Worker 版本 3 */
+const CACHE_NAME = 'ttl-pwa-v3'; // 修改這裡的版本號來強制更新
 const urlsToCache = [
   './',
   './index.html',
