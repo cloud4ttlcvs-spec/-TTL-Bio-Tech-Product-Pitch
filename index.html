@@ -30,6 +30,7 @@ body {
   color: var(--text-main);
   margin: 0; padding: 0; 
   padding-bottom: 100px;
+  overscroll-behavior-y: contain; /* 防止下拉重整干擾 */
 }
 
 /* --- STICKY WRAPPER --- */
@@ -228,6 +229,31 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   background: rgba(255,255,255,0.2); border-radius: 50%; padding: 5px;
 }
 
+/* --- EXIT MODAL --- */
+#exit-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+#exit-modal.show { opacity: 1; pointer-events: auto; }
+.exit-card {
+  background: #fff; width: 85%; max-width: 320px;
+  border-radius: 16px; padding: 20px; text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  transform: scale(0.9); transition: transform 0.2s;
+}
+#exit-modal.show .exit-card { transform: scale(1); }
+.exit-icon { font-size: 48px; color: var(--text-sub); margin-bottom: 10px; }
+.exit-title { font-size: 18px; font-weight: 900; color: #37474f; margin-bottom: 8px; }
+.exit-desc { font-size: 14px; color: #78909c; margin-bottom: 20px; }
+.exit-actions { display: flex; gap: 10px; justify-content: center; }
+.btn-exit {
+  flex: 1; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 700; border: none; cursor: pointer;
+}
+.btn-exit.cancel { background: #eceff1; color: #546e7a; }
+.btn-exit.confirm { background: #d32f2f; color: #fff; }
+
 /* --- FLOATING NAV --- */
 .floating-nav {
   position: fixed; bottom: 20px; right: 15px; z-index: 2000;
@@ -322,16 +348,27 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   </div>
 </div>
 
-<div id="lightbox" onclick="closeLightbox()">
+<div id="lightbox" onclick="uiCloseLightbox()">
   <span class="material-icons-round lb-close">close</span>
   <img id="lb-img" src="" onclick="event.stopPropagation()">
+</div>
+
+<div id="exit-modal">
+  <div class="exit-card">
+    <span class="material-icons-round exit-icon">exit_to_app</span>
+    <div class="exit-title">確定要離開嗎？</div>
+    <div class="exit-desc">您即將關閉話術系統，<br>是否確定退出？</div>
+    <div class="exit-actions">
+      <button class="btn-exit cancel" onclick="stayOnPage()">留在此頁</button>
+      <button class="btn-exit confirm" onclick="confirmExit()">確認離開</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"><span class="material-icons-round">check_circle</span> 已複製銷售文案</div>
 
 <script>
 // [UPDATED] Anti-Cache Config
-// 加入 &t=Date.now() 強制瀏覽器抓取最新版本，不讀快取
 const TS = Date.now();
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
 const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
@@ -349,6 +386,55 @@ const SECTIONS = {
 let PITCH_MAP = new Map();
 let PRODUCT_MAP = new Map();
 let RANKINGS = { all:[], health:[], drinks:[], beauty:[], cleaning:[] };
+
+// --- HISTORY STATE MANAGEMENT (Back Button Logic) ---
+window.onload = function() {
+  // 建立虛擬的起始點，攔截第一次返回
+  history.replaceState({page: 'root'}, document.title);
+  history.pushState({page: 'home'}, document.title);
+  
+  window.addEventListener('popstate', function(event) {
+    const state = event.state;
+    
+    // 1. 如果正在顯示 Lightbox，則關閉 (UI Logic 已在下方處理，這裡只要確保狀態同步)
+    const lb = document.getElementById("lightbox");
+    if (lb.classList.contains("open") && (!state || state.modal !== 'lightbox')) {
+      lb.classList.remove("open");
+      return;
+    }
+
+    // 2. 如果有卡片是打開的，則關閉
+    const activeCard = document.querySelector('.p-card.active');
+    if (activeCard && (!state || state.cardId !== activeCard.id)) {
+      activeCard.classList.remove('active');
+      activeCard.querySelector('.p-detail').style.maxHeight = null;
+      return;
+    }
+
+    // 3. 處理「退出確認」
+    // 當退到 'root' 狀態 (即當前狀態為 null 或 page:root)，且之前是在 'home'
+    if (!state || state.page === 'root') {
+      showExitModal();
+    }
+  });
+};
+
+function showExitModal() {
+  document.getElementById("exit-modal").classList.add("show");
+}
+
+function stayOnPage() {
+  // 重新加入 'home' 狀態，恢復正常瀏覽
+  document.getElementById("exit-modal").classList.remove("show");
+  history.pushState({page: 'home'}, document.title);
+}
+
+function confirmExit() {
+  // 真的要離開，退回上一頁 (即離開網頁)
+  history.back();
+}
+
+// ----------------------------------------------------
 
 function classifyProduct(name, originalCat) {
   const n = name.toLowerCase();
@@ -566,15 +652,25 @@ function handleSearch(val) {
   }, 300);
 }
 
+// [UPDATED] Lightbox Logic with History
 function openLightbox(e, src) {
   if(!src || src.length < 5) return;
   e.stopPropagation(); 
+  
+  // 1. Push state to history
+  history.pushState({modal: 'lightbox'}, document.title);
+  
   const lb = document.getElementById("lightbox");
   const img = document.getElementById("lb-img");
   img.src = src;
   lb.classList.add("open");
 }
-function closeLightbox() { document.getElementById("lightbox").classList.remove("open"); }
+
+function uiCloseLightbox() { 
+  // UI 觸發關閉 (例如按 X)，我們只需要執行 history.back()
+  // 瀏覽器會觸發 popstate，然後由那邊真正關閉 DOM
+  history.back();
+}
 
 function copyShare(btn, text) {
   event.stopPropagation();
@@ -588,7 +684,6 @@ function copyShare(btn, text) {
 function scrollToId(id) {
   const el = document.getElementById(id);
   if(!el) return;
-  // Offset calculation updated for sticky wrapper
   const offsetPosition = el.getBoundingClientRect().top + window.pageYOffset - 185;
   window.scrollTo({ top: offsetPosition, behavior: "smooth" });
 }
@@ -596,14 +691,17 @@ function scrollToId(id) {
 function jumpToProduct(elementId) {
   const el = document.getElementById(elementId);
   if(!el) return;
+  
+  // 關閉其他已開啟的卡片 (為了保持簡單，這裡不操作 history，直接重置 UI)
   document.querySelectorAll('.p-card.active').forEach(card => {
     if(card !== el) { card.classList.remove('active'); card.querySelector('.p-detail').style.maxHeight = null; }
   });
+  
   if(!el.classList.contains('active')) {
-    el.classList.add('active');
-    const panel = el.querySelector('.p-detail');
-    panel.style.maxHeight = panel.scrollHeight + "px";
+    // 透過 toggleAccordion 來觸發，這樣會包含 history 邏輯
+    toggleAccordion(el);
   }
+  
   el.classList.add("flash-highlight");
   setTimeout(()=>el.classList.remove("flash-highlight"), 1200);
   setTimeout(() => {
@@ -612,17 +710,45 @@ function jumpToProduct(elementId) {
   }, 300);
 }
 
+// [UPDATED] Accordion Logic with History
 function toggleAccordion(clickedCard) {
-  document.querySelectorAll('.p-card.active').forEach(card => {
-    if(card !== clickedCard) {
-      card.classList.remove('active');
-      card.querySelector('.p-detail').style.maxHeight = null;
+  const isActive = clickedCard.classList.contains('active');
+  
+  // 1. 如果點擊已開啟的卡片 -> 關閉 (模擬 Back)
+  if(isActive) {
+    history.back();
+    return;
+  }
+
+  // 2. 如果點擊新卡片 -> 先關閉舊的 (如果有的話)
+  const currentActive = document.querySelector('.p-card.active');
+  if (currentActive) {
+    // 這裡要注意：如果我們直接關閉舊的 DOM，歷史堆疊裡其實還有一層。
+    // 但為了使用者體驗，我們假設使用者切換卡片時，歷史紀錄應該是平行的。
+    // 簡單做法：先讓 UI 關閉舊的，但不操作 history (因為等下要 push 新的，或者 replace)
+    // 為了完美的堆疊邏輯，這裡我們使用 replaceState 替換掉當前卡片的歷史，或者讓每一張卡片都是獨立的一層。
+    // 這裡採用：關閉舊 UI，Push 新 State。
+    currentActive.classList.remove('active');
+    currentActive.querySelector('.p-detail').style.maxHeight = null;
+    
+    // 如果舊卡片有在歷史紀錄中 (理論上有)，我們是否要 pop 出來？
+    // 為了避免複雜，我們假設「同時只能開一張」。
+    // 這裡不做 history.back()，直接 push 新的，這樣按 Back 會依序關閉。
+    // 或者，比較好的 UX 是「切換」，所以用 replaceState。
+    if (history.state && history.state.cardId) {
+       history.replaceState({cardId: clickedCard.id}, document.title);
+    } else {
+       history.pushState({cardId: clickedCard.id}, document.title);
     }
-  });
-  clickedCard.classList.toggle('active');
+  } else {
+    // 沒有開啟的卡片，直接 Push
+    history.pushState({cardId: clickedCard.id}, document.title);
+  }
+
+  // 3. 開啟新卡片 UI
+  clickedCard.classList.add('active');
   const panel = clickedCard.querySelector('.p-detail');
-  if (panel.style.maxHeight) panel.style.maxHeight = null;
-  else panel.style.maxHeight = panel.scrollHeight + "px";
+  panel.style.maxHeight = panel.scrollHeight + "px";
 }
 
 function setupScrollSpy() {
