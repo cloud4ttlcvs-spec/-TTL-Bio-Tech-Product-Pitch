@@ -429,25 +429,29 @@ function showExitModal() {
 
 function stayOnPage() {
   document.getElementById("exit-modal").classList.remove("show");
-  // 恢復 Home 狀態，讓使用者可以繼續操作，下次按返回還是會跳提示
+  // 恢復 Home 狀態，讓使用者可以繼續操作
   history.pushState({page: 'home'}, document.title);
 }
 
 function confirmExit() {
-  // 1. 介面回饋：立刻關閉視窗，讓使用者知道點擊有效
+  // 1. 介面回饋：立刻關閉視窗
   document.getElementById("exit-modal").classList.remove("show");
-  
+
   // 2. 嘗試 PWA/APP 原生關閉
   try { window.close(); } catch(e){}
 
-  // 3. 嘗試瀏覽器返回 (如果有點擊進來的歷史紀錄)
+  // 3. 第一次嘗試返回
   history.back();
 
-  // 4. 強制離開機制 (Fallback)
-  // 如果 300ms 後網頁還活著，代表瀏覽器擋住了關閉，且沒有上一頁
-  // 這時候我們強制導向空白頁，達到「離開」系統的目的
+  // 4. [修正] 加入 0.3 秒延遲的二次指令 (補刀機制)
+  // 如果第一次返回後頁面還在，300ms 後再按一次 Back，強制離開
   setTimeout(() => {
-    window.location.href = 'about:blank';
+    history.back();
+    
+    // 如果連按兩次返回都沒用，0.3秒後強制跳轉到 Google (視為離開系統)
+    setTimeout(() => {
+        window.location.href = 'https://www.google.com';
+    }, 300);
   }, 300);
 }
 
