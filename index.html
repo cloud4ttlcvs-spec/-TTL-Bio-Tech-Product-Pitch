@@ -257,7 +257,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 .exit-actions { display: flex; gap: 10px; justify-content: center; }
 .btn-exit {
   flex: 1; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 700; border: none; cursor: pointer;
-  position: relative; z-index: 1; /* 確保按鈕層級 */
+  position: relative; z-index: 1; 
 }
 .btn-exit.cancel { background: #eceff1; color: #546e7a; }
 .btn-exit.confirm { background: #d32f2f; color: #fff; }
@@ -363,7 +363,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   <div class="exit-card">
     <span class="material-icons-round exit-icon">exit_to_app</span>
     <div class="exit-title">確定要離開嗎？</div>
-    <div class="exit-desc">您即將關閉話術系統，<br>是否確定退出？</div>
+    <div class="exit-desc">您即將離開話術系統，<br>是否確定退出？</div>
     <div class="exit-actions">
       <button class="btn-exit cancel" onclick="stayOnPage()">留在此頁</button>
       <button class="btn-exit confirm" onclick="confirmExit()">確認離開</button>
@@ -401,14 +401,14 @@ window.onload = function() {
   window.addEventListener('popstate', function(event) {
     const state = event.state;
     
-    // Lightbox 關閉邏輯
+    // Lightbox 關閉
     const lb = document.getElementById("lightbox");
     if (lb.classList.contains("open") && (!state || state.modal !== 'lightbox')) {
       lb.classList.remove("open");
       return;
     }
 
-    // 卡片收合邏輯
+    // 卡片收合
     const activeCard = document.querySelector('.p-card.active');
     if (activeCard && (!state || state.cardId !== activeCard.id)) {
       activeCard.classList.remove('active');
@@ -416,7 +416,7 @@ window.onload = function() {
       return;
     }
 
-    // 退出確認邏輯 (當回到 root 狀態)
+    // 觸發退出提示
     if (!state || state.page === 'root') {
       showExitModal();
     }
@@ -429,21 +429,25 @@ function showExitModal() {
 
 function stayOnPage() {
   document.getElementById("exit-modal").classList.remove("show");
-  // 恢復 Home 狀態，避免下次按上一頁直接離開
+  // 恢復 Home 狀態，讓使用者可以繼續操作，下次按返回還是會跳提示
   history.pushState({page: 'home'}, document.title);
 }
 
 function confirmExit() {
-  // 1. 立即隱藏模態視窗，給予點擊回饋
+  // 1. 介面回饋：立刻關閉視窗，讓使用者知道點擊有效
   document.getElementById("exit-modal").classList.remove("show");
   
-  // 2. 嘗試透過瀏覽器歷史返回
+  // 2. 嘗試 PWA/APP 原生關閉
+  try { window.close(); } catch(e){}
+
+  // 3. 嘗試瀏覽器返回 (如果有點擊進來的歷史紀錄)
   history.back();
 
-  // 3. Fallback: 如果是一頁式應用或安裝後的 PWA，history.back 可能無效
-  // 給予一小段延遲後嘗試直接關閉
+  // 4. 強制離開機制 (Fallback)
+  // 如果 300ms 後網頁還活著，代表瀏覽器擋住了關閉，且沒有上一頁
+  // 這時候我們強制導向空白頁，達到「離開」系統的目的
   setTimeout(() => {
-    window.close();
+    window.location.href = 'about:blank';
   }, 300);
 }
 
