@@ -281,6 +281,8 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   width: 45px; height: 45px; background: var(--primary); color: #fff;
   box-shadow: 0 4px 15px rgba(0, 137, 123, 0.4); border: none; font-size: 24px; margin-top: 5px;
 }
+/* New PWA Install Button (Hidden by default) */
+#btn-install { display: none; background: #263238; color: #ffeb3b; border-color: #263238; }
 
 /* --- TOAST --- */
 #toast {
@@ -290,6 +292,19 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   pointer-events: none; display: flex; align-items: center; gap: 6px;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* --- UPDATE TOAST --- */
+#update-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(50px);
+  background: #37474f; color: #fff; padding: 12px 20px; border-radius: 50px;
+  font-size: 14px; font-weight: 700; z-index: 3001; opacity: 0; pointer-events: none; transition: 0.3s;
+  display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+#update-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+.btn-update {
+  background: #ffeb3b; color: #37474f; border: none; padding: 4px 12px;
+  border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer;
+}
 
 #loader { position: fixed; inset: 0; background: #fff; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
 .loader-spin { width: 40px; height: 40px; border: 4px solid #eceff1; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
@@ -345,6 +360,10 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 </main>
 
 <div class="floating-nav">
+  <div class="float-btn" id="btn-install" onclick="installApp()" title="安裝App">
+    <span class="material-icons-round">install_mobile</span>
+  </div>
+  
   <div class="float-btn" onclick="scrollToId('sec-health')" title="保健">💊</div>
   <div class="float-btn" onclick="scrollToId('sec-drinks')" title="飲品">🥤</div>
   <div class="float-btn" onclick="scrollToId('sec-beauty')" title="美容">💄</div>
@@ -373,8 +392,13 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 
 <div id="toast"><span class="material-icons-round">check_circle</span> 已複製銷售文案</div>
 
+<div id="update-toast">
+  <span class="material-icons-round" style="color:#ffeb3b">system_update</span>
+  <div>發現新版本</div>
+  <button class="btn-update" onclick="updateApp()">更新</button>
+</div>
+
 <script>
-// [UPDATED] Anti-Cache Config
 const TS = Date.now();
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
 const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
@@ -393,7 +417,7 @@ let PITCH_MAP = new Map();
 let PRODUCT_MAP = new Map();
 let RANKINGS = { all:[], health:[], drinks:[], beauty:[], cleaning:[] };
 
-// --- HISTORY STATE MANAGEMENT (Back Button Logic) ---
+// --- HISTORY & BACK LOGIC ---
 window.onload = function() {
   history.replaceState({page: 'root'}, document.title);
   history.pushState({page: 'home'}, document.title);
@@ -401,14 +425,12 @@ window.onload = function() {
   window.addEventListener('popstate', function(event) {
     const state = event.state;
     
-    // Lightbox 關閉
     const lb = document.getElementById("lightbox");
     if (lb.classList.contains("open") && (!state || state.modal !== 'lightbox')) {
       lb.classList.remove("open");
       return;
     }
 
-    // 卡片收合
     const activeCard = document.querySelector('.p-card.active');
     if (activeCard && (!state || state.cardId !== activeCard.id)) {
       activeCard.classList.remove('active');
@@ -416,7 +438,6 @@ window.onload = function() {
       return;
     }
 
-    // 觸發退出提示
     if (!state || state.page === 'root') {
       showExitModal();
     }
@@ -429,30 +450,26 @@ function showExitModal() {
 
 function stayOnPage() {
   document.getElementById("exit-modal").classList.remove("show");
-  // 恢復 Home 狀態，讓使用者可以繼續操作，下次按返回還是會跳提示
   history.pushState({page: 'home'}, document.title);
 }
 
 function confirmExit() {
-  // 1. 介面回饋：立刻關閉視窗，讓使用者知道點擊有效
   document.getElementById("exit-modal").classList.remove("show");
-  
-  // 2. 嘗試 PWA/APP 原生關閉
   try { window.close(); } catch(e){}
-
-  // 3. 嘗試瀏覽器返回 (如果有點擊進來的歷史紀錄)
   history.back();
-
-  // 4. 強制離開機制 (Fallback)
-  // 如果 300ms 後網頁還活著，代表瀏覽器擋住了關閉，且沒有上一頁
-  // 這時候我們強制導向空白頁，達到「離開」系統的目的
   setTimeout(() => {
     window.location.href = 'about:blank';
   }, 300);
 }
 
-// ----------------------------------------------------
+// ... (Product Logic Omitted for Brevity - Same as uploaded file) ...
+// 為了避免重複代碼，這裡保留您原檔中的分類、載入、渲染邏輯
+// 請將您原檔中的 classifyProduct, init, processRankings, renderRankingList, 
+// switchRank, renderUI, handleSearch, openLightbox, uiCloseLightbox, 
+// copyShare, scrollToId, jumpToProduct, toggleAccordion, setupScrollSpy 函式原封不動保留
+// (下方僅列出新增/修改的部分)
 
+// --- (Original JS Functions from your file go here) ---
 function classifyProduct(name, originalCat) {
   const n = name.toLowerCase();
   const c = originalCat.toLowerCase();
@@ -760,13 +777,77 @@ function setupScrollSpy() {
   document.querySelectorAll('.cat-section').forEach(section => { observer.observe(section); });
 }
 
-// PWA Service Worker 註冊
+// --- PWA LOGIC (Install & Update) ---
+let deferredPrompt;
+let newWorker;
+
+// 1. 處理安裝提示
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // 顯示懸浮的安裝按鈕
+  document.getElementById('btn-install').style.display = 'flex';
+});
+
+async function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('btn-install').style.display = 'none';
+  }
+}
+
+// 2. 處理更新提示
+function updateApp() {
+  if (newWorker) {
+    newWorker.postMessage({ type: 'SKIP_WAITING' });
+  }
+}
+
+// 3. 註冊 Service Worker 並監聽狀態
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(reg => console.log('SW registered!', reg))
-      .catch(err => console.log('SW failed', err));
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('SW Registered');
+
+      // 檢查是否已經有等待中的 SW (例如使用者上次訪問但沒關閉分頁)
+      if (reg.waiting) {
+        newWorker = reg.waiting;
+        showUpdateToast();
+        return;
+      }
+
+      // 監聽新 SW 的安裝過程
+      reg.addEventListener('updatefound', () => {
+        const installingWorker = reg.installing;
+        installingWorker.onstatechange = () => {
+          if (installingWorker.state === 'installed') {
+            if (navigator.serviceWorker.controller) {
+              // 已經有舊的 Controller，代表這是「更新」
+              newWorker = installingWorker;
+              showUpdateToast();
+            } else {
+              // 這是第一次安裝
+              console.log('Content is cached for offline use.');
+            }
+          }
+        };
+      });
+    });
+
+    // 當 SW 更新並接管頁面後，重新整理
+    let refreshing;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
   });
+}
+
+function showUpdateToast() {
+  document.getElementById('update-toast').classList.add('show');
 }
 
 init();
