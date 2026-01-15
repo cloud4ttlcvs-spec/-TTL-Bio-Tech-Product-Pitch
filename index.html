@@ -4,6 +4,13 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
 <title>台酒生技產品話術系統</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00897b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -30,7 +37,7 @@ body {
   color: var(--text-main);
   margin: 0; padding: 0; 
   padding-bottom: 100px;
-  overscroll-behavior-y: contain; /* 防止下拉重整干擾 */
+  overscroll-behavior-y: contain;
 }
 
 /* --- STICKY WRAPPER --- */
@@ -250,6 +257,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 .exit-actions { display: flex; gap: 10px; justify-content: center; }
 .btn-exit {
   flex: 1; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 700; border: none; cursor: pointer;
+  position: relative; z-index: 1; /* 確保按鈕層級 */
 }
 .btn-exit.cancel { background: #eceff1; color: #546e7a; }
 .btn-exit.confirm { background: #d32f2f; color: #fff; }
@@ -321,7 +329,6 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 </div>
 
 <main id="main-container">
-  
   <div id="ranking-section">
     <div class="rank-head">
       <div class="rank-title"><span class="material-icons-round" style="color:#d81b60">local_fire_department</span> 熱銷排行</div>
@@ -335,7 +342,6 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
     </div>
     <div class="rank-list" id="rankList"></div>
   </div>
-
 </main>
 
 <div class="floating-nav">
@@ -389,21 +395,20 @@ let RANKINGS = { all:[], health:[], drinks:[], beauty:[], cleaning:[] };
 
 // --- HISTORY STATE MANAGEMENT (Back Button Logic) ---
 window.onload = function() {
-  // 建立虛擬的起始點，攔截第一次返回
   history.replaceState({page: 'root'}, document.title);
   history.pushState({page: 'home'}, document.title);
   
   window.addEventListener('popstate', function(event) {
     const state = event.state;
     
-    // 1. 如果正在顯示 Lightbox，則關閉 (UI Logic 已在下方處理，這裡只要確保狀態同步)
+    // Lightbox 關閉邏輯
     const lb = document.getElementById("lightbox");
     if (lb.classList.contains("open") && (!state || state.modal !== 'lightbox')) {
       lb.classList.remove("open");
       return;
     }
 
-    // 2. 如果有卡片是打開的，則關閉
+    // 卡片收合邏輯
     const activeCard = document.querySelector('.p-card.active');
     if (activeCard && (!state || state.cardId !== activeCard.id)) {
       activeCard.classList.remove('active');
@@ -411,8 +416,7 @@ window.onload = function() {
       return;
     }
 
-    // 3. 處理「退出確認」
-    // 當退到 'root' 狀態 (即當前狀態為 null 或 page:root)，且之前是在 'home'
+    // 退出確認邏輯 (當回到 root 狀態)
     if (!state || state.page === 'root') {
       showExitModal();
     }
@@ -424,14 +428,23 @@ function showExitModal() {
 }
 
 function stayOnPage() {
-  // 重新加入 'home' 狀態，恢復正常瀏覽
   document.getElementById("exit-modal").classList.remove("show");
+  // 恢復 Home 狀態，避免下次按上一頁直接離開
   history.pushState({page: 'home'}, document.title);
 }
 
 function confirmExit() {
-  // 真的要離開，退回上一頁 (即離開網頁)
+  // 1. 立即隱藏模態視窗，給予點擊回饋
+  document.getElementById("exit-modal").classList.remove("show");
+  
+  // 2. 嘗試透過瀏覽器歷史返回
   history.back();
+
+  // 3. Fallback: 如果是一頁式應用或安裝後的 PWA，history.back 可能無效
+  // 給予一小段延遲後嘗試直接關閉
+  setTimeout(() => {
+    window.close();
+  }, 300);
 }
 
 // ----------------------------------------------------
@@ -652,14 +665,10 @@ function handleSearch(val) {
   }, 300);
 }
 
-// [UPDATED] Lightbox Logic with History
 function openLightbox(e, src) {
   if(!src || src.length < 5) return;
   e.stopPropagation(); 
-  
-  // 1. Push state to history
   history.pushState({modal: 'lightbox'}, document.title);
-  
   const lb = document.getElementById("lightbox");
   const img = document.getElementById("lb-img");
   img.src = src;
@@ -667,8 +676,6 @@ function openLightbox(e, src) {
 }
 
 function uiCloseLightbox() { 
-  // UI 觸發關閉 (例如按 X)，我們只需要執行 history.back()
-  // 瀏覽器會觸發 popstate，然後由那邊真正關閉 DOM
   history.back();
 }
 
@@ -692,13 +699,11 @@ function jumpToProduct(elementId) {
   const el = document.getElementById(elementId);
   if(!el) return;
   
-  // 關閉其他已開啟的卡片 (為了保持簡單，這裡不操作 history，直接重置 UI)
   document.querySelectorAll('.p-card.active').forEach(card => {
     if(card !== el) { card.classList.remove('active'); card.querySelector('.p-detail').style.maxHeight = null; }
   });
   
   if(!el.classList.contains('active')) {
-    // 透過 toggleAccordion 來觸發，這樣會包含 history 邏輯
     toggleAccordion(el);
   }
   
@@ -710,42 +715,27 @@ function jumpToProduct(elementId) {
   }, 300);
 }
 
-// [UPDATED] Accordion Logic with History
 function toggleAccordion(clickedCard) {
   const isActive = clickedCard.classList.contains('active');
   
-  // 1. 如果點擊已開啟的卡片 -> 關閉 (模擬 Back)
   if(isActive) {
     history.back();
     return;
   }
 
-  // 2. 如果點擊新卡片 -> 先關閉舊的 (如果有的話)
   const currentActive = document.querySelector('.p-card.active');
   if (currentActive) {
-    // 這裡要注意：如果我們直接關閉舊的 DOM，歷史堆疊裡其實還有一層。
-    // 但為了使用者體驗，我們假設使用者切換卡片時，歷史紀錄應該是平行的。
-    // 簡單做法：先讓 UI 關閉舊的，但不操作 history (因為等下要 push 新的，或者 replace)
-    // 為了完美的堆疊邏輯，這裡我們使用 replaceState 替換掉當前卡片的歷史，或者讓每一張卡片都是獨立的一層。
-    // 這裡採用：關閉舊 UI，Push 新 State。
     currentActive.classList.remove('active');
     currentActive.querySelector('.p-detail').style.maxHeight = null;
-    
-    // 如果舊卡片有在歷史紀錄中 (理論上有)，我們是否要 pop 出來？
-    // 為了避免複雜，我們假設「同時只能開一張」。
-    // 這裡不做 history.back()，直接 push 新的，這樣按 Back 會依序關閉。
-    // 或者，比較好的 UX 是「切換」，所以用 replaceState。
     if (history.state && history.state.cardId) {
        history.replaceState({cardId: clickedCard.id}, document.title);
     } else {
        history.pushState({cardId: clickedCard.id}, document.title);
     }
   } else {
-    // 沒有開啟的卡片，直接 Push
     history.pushState({cardId: clickedCard.id}, document.title);
   }
 
-  // 3. 開啟新卡片 UI
   clickedCard.classList.add('active');
   const panel = clickedCard.querySelector('.p-detail');
   panel.style.maxHeight = panel.scrollHeight + "px";
@@ -765,6 +755,16 @@ function setupScrollSpy() {
   }, { root: null, rootMargin: '-190px 0px -70% 0px', threshold: 0 });
   document.querySelectorAll('.cat-section').forEach(section => { observer.observe(section); });
 }
+
+// PWA Service Worker 註冊
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('SW registered!', reg))
+      .catch(err => console.log('SW failed', err));
+  });
+}
+
 init();
 </script>
 </body>
