@@ -28,6 +28,7 @@
   --highlight-color: #ffeb3b;
   --highlight-text: #d81b60;
   --sticky-offset: 185px; 
+  --promo-color: #ff9800; /* 促銷主題色 */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -45,6 +46,7 @@ body {
   position: sticky; top: 0; z-index: 1000;
   background: #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  transition: transform 0.3s;
 }
 
 /* --- HEADER --- */
@@ -220,6 +222,54 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 }
 .btn-share:active { transform: scale(0.95); background: #cfd8dc; }
 
+/* --- PROMO STYLES --- */
+#promo-container {
+  max-width: 800px; margin: 0 auto; padding: 20px 15px;
+  display: none; /* 預設隱藏 */
+}
+.promo-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee;
+}
+.promo-title-main { font-size: 20px; font-weight: 900; color: var(--promo-color); display: flex; align-items: center; gap:8px;}
+.btn-back-home {
+  background: #eceff1; color: #546e7a; border: none;
+  padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; gap: 4px; cursor: pointer;
+}
+
+.promo-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+}
+.promo-card {
+  background: #fff; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08); border: 2px solid transparent;
+  display: flex; flex-direction: column; cursor: pointer; transition: 0.2s;
+}
+.promo-card:active { transform: scale(0.98); }
+.promo-img-box {
+  width: 100%; aspect-ratio: 16/9; background: #f5f5f5;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.promo-img { width: 100%; height: 100%; object-fit: cover; }
+.promo-body { padding: 10px; flex: 1; display: flex; flex-direction: column; }
+.promo-t { font-size: 14px; font-weight: 900; color: #37474f; margin-bottom: 6px; line-height: 1.3; }
+.promo-d { font-size: 11px; color: #78909c; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.promo-date { font-size: 10px; color: var(--promo-color); margin-top: 8px; font-weight: 700; }
+
+/* 閃爍動畫 (用於導航後的提示) */
+@keyframes flashPromo { 0%,100% { border-color: transparent; } 50% { border-color: var(--promo-color); box-shadow: 0 0 0 4px rgba(255,152,0,0.3); } }
+.flash-promo { animation: flashPromo 1.5s ease-in-out infinite; }
+
+/* 產品卡片上的促銷貼紙 */
+.promo-sticker {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: #fff3e0; color: #e65100; font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 4px; border: 1px solid #ffe0b2;
+  margin-left: 6px; cursor: pointer; vertical-align: middle;
+}
+.promo-sticker:active { background: #ffe0b2; }
+
 /* --- LIGHTBOX --- */
 #lightbox {
   position: fixed; inset: 0; z-index: 9999;
@@ -281,8 +331,21 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   width: 45px; height: 45px; background: var(--primary); color: #fff;
   box-shadow: 0 4px 15px rgba(0, 137, 123, 0.4); border: none; font-size: 24px; margin-top: 5px;
 }
-/* New PWA Install Button (Hidden by default) */
+/* New PWA Install Button */
 #btn-install { display: none; background: #263238; color: #ffeb3b; border-color: #263238; }
+
+/* Promo Balloon (Pulsing) */
+.btn-promo-balloon {
+  width: 45px; height: 45px; 
+  background: var(--promo-color); color: #fff;
+  border: none; margin-bottom: 5px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 152, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
+}
 
 /* --- TOAST --- */
 #toast {
@@ -357,11 +420,28 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
     </div>
     <div class="rank-list" id="rankList"></div>
   </div>
-</main>
+  </main>
+
+<div id="promo-container">
+  <div class="promo-header">
+    <div class="promo-title-main">
+      <span class="material-icons-round">campaign</span> 最新活動
+    </div>
+    <button class="btn-back-home" onclick="showMainView()">
+      <span class="material-icons-round" style="font-size:16px">arrow_back</span> 回列表
+    </button>
+  </div>
+  <div class="promo-grid" id="promo-grid">
+    </div>
+</div>
 
 <div class="floating-nav">
   <div class="float-btn" id="btn-install" onclick="installApp()" title="安裝App">
     <span class="material-icons-round">install_mobile</span>
+  </div>
+
+  <div class="float-btn btn-promo-balloon" onclick="showPromoView()" title="促銷活動">
+    <span class="material-icons-round">campaign</span>
   </div>
   
   <div class="float-btn" onclick="scrollToId('sec-health')" title="保健">💊</div>
@@ -403,6 +483,9 @@ const TS = Date.now();
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
 const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
+// NEW: Promo Sheet
+const SHEET_PROMO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEfLugUcwQdHTTu0NZcy2QHyMPvMaPpfU6g_p0MTrw3muXIGn3SPkISSPnbW9ou1GlHzRc6/pub?gid=74407584&single=true&output=csv&t=" + TS;
+
 const PROXY = (url) => "https://corsproxy.io/?" + encodeURIComponent(url);
 
 const SECTIONS = {
@@ -415,6 +498,8 @@ const SECTIONS = {
 
 let PITCH_MAP = new Map();
 let PRODUCT_MAP = new Map();
+let PROMO_LIST = [];
+let PRODUCT_TO_PROMO_MAP = new Map(); // ProductCode -> [Promo objects]
 let RANKINGS = { all:[], health:[], drinks:[], beauty:[], cleaning:[] };
 
 // --- HISTORY & BACK LOGIC ---
@@ -425,12 +510,21 @@ window.onload = function() {
   window.addEventListener('popstate', function(event) {
     const state = event.state;
     
+    // Lightbox
     const lb = document.getElementById("lightbox");
     if (lb.classList.contains("open") && (!state || state.modal !== 'lightbox')) {
       lb.classList.remove("open");
       return;
     }
 
+    // Promo View Back Logic
+    const promoContainer = document.getElementById("promo-container");
+    if (promoContainer.style.display === "block" && (!state || state.page !== 'promo')) {
+      showMainView(false); // false = don't push history again
+      return;
+    }
+
+    // Card collapse
     const activeCard = document.querySelector('.p-card.active');
     if (activeCard && (!state || state.cardId !== activeCard.id)) {
       activeCard.classList.remove('active');
@@ -444,32 +538,19 @@ window.onload = function() {
   });
 };
 
-function showExitModal() {
-  document.getElementById("exit-modal").classList.add("show");
-}
-
+function showExitModal() { document.getElementById("exit-modal").classList.add("show"); }
 function stayOnPage() {
   document.getElementById("exit-modal").classList.remove("show");
   history.pushState({page: 'home'}, document.title);
 }
-
 function confirmExit() {
   document.getElementById("exit-modal").classList.remove("show");
   try { window.close(); } catch(e){}
   history.back();
-  setTimeout(() => {
-    window.location.href = 'about:blank';
-  }, 300);
+  setTimeout(() => { window.location.href = 'about:blank'; }, 300);
 }
 
-// ... (Product Logic Omitted for Brevity - Same as uploaded file) ...
-// 為了避免重複代碼，這裡保留您原檔中的分類、載入、渲染邏輯
-// 請將您原檔中的 classifyProduct, init, processRankings, renderRankingList, 
-// switchRank, renderUI, handleSearch, openLightbox, uiCloseLightbox, 
-// copyShare, scrollToId, jumpToProduct, toggleAccordion, setupScrollSpy 函式原封不動保留
-// (下方僅列出新增/修改的部分)
-
-// --- (Original JS Functions from your file go here) ---
+// --- DATA & INIT ---
 function classifyProduct(name, originalCat) {
   const n = name.toLowerCase();
   const c = originalCat.toLowerCase();
@@ -487,12 +568,14 @@ function classifyProduct(name, originalCat) {
 
 async function init() {
   try {
-    const [resProd, resPitch, resRank] = await Promise.all([
+    const [resProd, resPitch, resRank, resPromo] = await Promise.all([
       fetch(PROXY(SHEET_PRODUCTS)).then(r => r.text()),
       fetch(PROXY(SHEET_PITCH)).then(r => r.text()),
-      fetch(PROXY(SHEET_RANK)).then(r => r.text())
+      fetch(PROXY(SHEET_RANK)).then(r => r.text()),
+      fetch(PROXY(SHEET_PROMO)).then(r => r.text())
     ]);
 
+    // Parse Pitch
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = (row['product_code'] || "").trim();
       if(code) PITCH_MAP.set(code, {
@@ -500,6 +583,34 @@ async function init() {
       });
     });
 
+    // Parse Promo (NEW)
+    Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
+      const id = (row['promo_id']||"").trim();
+      if(!id) return;
+      
+      const promo = {
+        id: id,
+        title: row['title'] || "未命名活動",
+        content: row['content'] || "",
+        img: row['img_url'] || "",
+        start: row['start_date'],
+        end: row['end_date'],
+        color: row['bg_color'] || "#fff"
+      };
+      
+      PROMO_LIST.push(promo);
+
+      // Parse related codes (Split by newline or comma)
+      const rawRelated = row['related_codes'] || "";
+      const relatedCodes = rawRelated.split(/[\r\n,]+/).map(c => c.trim()).filter(c => c);
+      
+      relatedCodes.forEach(pCode => {
+        if(!PRODUCT_TO_PROMO_MAP.has(pCode)) PRODUCT_TO_PROMO_MAP.set(pCode, []);
+        PRODUCT_TO_PROMO_MAP.get(pCode).push(promo);
+      });
+    });
+
+    // Parse Products
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
       const pick = (k) => row[Object.keys(row).find(key => key.toLowerCase() === k.toLowerCase())] || "";
       const code = String(pick("product_code")||"").trim();
@@ -526,6 +637,7 @@ async function init() {
     });
 
     processRankings(resRank);
+    renderPromotions(); // Render Promo Grid
     renderUI();
     document.getElementById("loader").style.opacity = 0;
     setTimeout(() => document.getElementById("loader").remove(), 500);
@@ -585,6 +697,30 @@ function switchRank(type) {
   renderRankingList(type);
 }
 
+function renderPromotions() {
+  const grid = document.getElementById("promo-grid");
+  grid.innerHTML = "";
+  PROMO_LIST.forEach(promo => {
+    const card = document.createElement("div");
+    card.className = "promo-card";
+    card.id = "promo-" + promo.id;
+    // 如果有背景色設定
+    if(promo.color && promo.color !== '#fff') card.style.background = promo.color;
+
+    const imgHtml = promo.img ? `<img src="${promo.img}" class="promo-img">` : `<span class="material-icons-round" style="color:#ccc">image</span>`;
+    
+    card.innerHTML = `
+      <div class="promo-img-box">${imgHtml}</div>
+      <div class="promo-body">
+        <div class="promo-t">${promo.title}</div>
+        <div class="promo-d">${promo.content}</div>
+        <div class="promo-date">${promo.start} ~ ${promo.end}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
 function renderUI(filterText = "") {
   const container = document.getElementById("main-container");
   const nav = document.getElementById("topNav");
@@ -631,6 +767,15 @@ function renderUI(filterText = "") {
       const displayName = highlight(p.name, filterText);
       let detailContent = "", shareBtnHtml = "";
       
+      // Check Promo Sticker
+      let stickerHtml = "";
+      if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
+        const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
+        promos.forEach(pr => {
+          stickerHtml += `<div class="promo-sticker" onclick="showPromoView('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+        });
+      }
+      
       if (p.pitch) {
         let tagsHtml = "";
         if(p.pitch.tags) tagsHtml = `<div class="pitch-tags">` + p.pitch.tags.split(/,|，/).map(t => `<span class="tag">#${highlight(t.trim(), filterText)}</span>`).join('') + `</div>`;
@@ -660,7 +805,7 @@ function renderUI(filterText = "") {
           <div class="p-img-box" onclick="openLightbox(event, '${p.photo}')">${imgHtml}</div>
           <div class="p-basic-info">
             <div class="p-code">${highlight(p.code, filterText)}</div>
-            <div class="p-name">${displayName}</div>
+            <div class="p-name">${displayName}${stickerHtml}</div>
             <div class="p-spec">${p.spec || ''}</div>
             <div class="p-price-row"><div class="p-price">${p.price.toLocaleString()}</div><span class="material-icons-round p-arrow">expand_more</span></div>
           </div>
@@ -737,6 +882,9 @@ function jumpToProduct(elementId) {
 }
 
 function toggleAccordion(clickedCard) {
+  // If clicking Sticker, ignore accordion toggle (handled by onclick in sticker)
+  if(event.target.classList.contains('promo-sticker') || event.target.parentElement.classList.contains('promo-sticker')) return;
+
   const isActive = clickedCard.classList.contains('active');
   
   if(isActive) {
@@ -777,15 +925,49 @@ function setupScrollSpy() {
   document.querySelectorAll('.cat-section').forEach(section => { observer.observe(section); });
 }
 
-// --- PWA LOGIC (Install & Update) ---
+// --- PROMO VIEW LOGIC ---
+function showPromoView(targetId) {
+  // Push history state if not coming from popstate
+  if (history.state && history.state.page !== 'promo') {
+    history.pushState({page: 'promo'}, document.title);
+  }
+
+  document.getElementById("main-container").style.display = 'none';
+  document.querySelector('.sticky-header-group').style.display = 'none'; // Hide header
+  document.getElementById("promo-container").style.display = 'block';
+  document.querySelector('.floating-nav').style.display = 'none'; // Hide FAB
+  window.scrollTo({top: 0});
+
+  // Highlight specific promo if targetId is provided
+  if(targetId) {
+    const card = document.getElementById("promo-" + targetId);
+    if(card) {
+      setTimeout(() => {
+        card.scrollIntoView({behavior: "smooth", block: "center"});
+        card.classList.add("flash-promo");
+        setTimeout(() => card.classList.remove("flash-promo"), 3000);
+      }, 100);
+    }
+  }
+}
+
+function showMainView(pushHistory = true) {
+  if (pushHistory) history.back(); // Use back to revert state
+  else {
+    document.getElementById("main-container").style.display = 'block';
+    document.querySelector('.sticky-header-group').style.display = 'block';
+    document.getElementById("promo-container").style.display = 'none';
+    document.querySelector('.floating-nav').style.display = 'flex';
+  }
+}
+
+// --- PWA LOGIC ---
 let deferredPrompt;
 let newWorker;
 
-// 1. 處理安裝提示
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  // 顯示懸浮的安裝按鈕
   document.getElementById('btn-install').style.display = 'flex';
 });
 
@@ -798,45 +980,33 @@ async function installApp() {
   }
 }
 
-// 2. 處理更新提示
 function updateApp() {
   if (newWorker) {
     newWorker.postMessage({ type: 'SKIP_WAITING' });
   }
 }
 
-// 3. 註冊 Service Worker 並監聽狀態
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
-      console.log('SW Registered');
-
-      // 檢查是否已經有等待中的 SW (例如使用者上次訪問但沒關閉分頁)
       if (reg.waiting) {
         newWorker = reg.waiting;
         showUpdateToast();
         return;
       }
-
-      // 監聽新 SW 的安裝過程
       reg.addEventListener('updatefound', () => {
         const installingWorker = reg.installing;
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              // 已經有舊的 Controller，代表這是「更新」
               newWorker = installingWorker;
               showUpdateToast();
-            } else {
-              // 這是第一次安裝
-              console.log('Content is cached for offline use.');
             }
           }
         };
       });
     });
 
-    // 當 SW 更新並接管頁面後，重新整理
     let refreshing;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (refreshing) return;
