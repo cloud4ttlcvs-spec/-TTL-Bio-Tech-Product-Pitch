@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ttl-pwa-v6'; // 修改版本號以觸發更新測試
+const CACHE_NAME = 'ttl-pwa-v7'; // 修改版本號以觸發更新測試
 const urlsToCache = [
   './',
   './index.html',
@@ -48,3 +48,4 @@ self.addEventListener('message', (event) => {
   }
 
 });
+
