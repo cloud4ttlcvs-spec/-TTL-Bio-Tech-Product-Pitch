@@ -288,20 +288,14 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   position: relative;
 }
 
-/* 圖片容器 - 自適應直橫圖 */
 .pm-img-wrap {
   background: #000;
-  width: 100%; 
-  /* 預設高度，確保有空間 */
-  min-height: 200px; 
-  flex-shrink: 0;
+  width: 100%; min-height: 200px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
 }
 .pm-img {
-  width: 100%; height: auto;
-  max-height: 60vh; /* 限制圖片最大高度，留空間給文字 */
-  object-fit: contain; /* 關鍵：確保整張圖都看得到，不被裁切 */
+  width: 100%; height: auto; max-height: 60vh; object-fit: contain;
 }
 
 .pm-info {
@@ -335,7 +329,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 
 /* --- EXIT MODAL --- */
 #exit-modal {
-  position: fixed; inset: 0; z-index: 11000; /* Highest Z-index */
+  position: fixed; inset: 0; z-index: 11000;
   background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center;
   opacity: 0; pointer-events: none; transition: opacity 0.2s;
@@ -635,6 +629,43 @@ function classifyProduct(name, originalCat) {
   return "other";
 }
 
+// 根據關鍵字找出產品 (支援類別對應 & 文字搜尋)
+function findProductsByKeyword(keyword) {
+  const k = keyword.trim();
+  const typeMap = {
+    '美容': 'beauty', '保養': 'beauty',
+    '清潔': 'cleaning', '洗沐': 'cleaning', '洗潔': 'cleaning',
+    '保健': 'health', '健康': 'health',
+    '飲品': 'drinks', '飲料': 'drinks'
+  };
+  const targetType = typeMap[k]; // undefined if no match
+
+  const matches = [];
+  PRODUCT_MAP.forEach(p => {
+    const pType = classifyProduct(p.name, p.category);
+    // 1. 類別對應 (例如 "美容" -> 所有 beauty)
+    if(targetType && pType === targetType) {
+      matches.push(p.code);
+      return;
+    }
+    // 2. 文字包含 (例如 "面膜" -> 所有含面膜的產品)
+    if(p.category.includes(k) || p.name.includes(k)) {
+      matches.push(p.code);
+      return;
+    }
+  });
+  return matches;
+}
+
+function addPromoToProduct(pCode, promoObj) {
+  if(!PRODUCT_TO_PROMO_MAP.has(pCode)) PRODUCT_TO_PROMO_MAP.set(pCode, []);
+  // 避免重複 (例如同時輸入 "美容" 和 "面膜", 同一產品可能被匹配兩次)
+  const list = PRODUCT_TO_PROMO_MAP.get(pCode);
+  if(!list.some(p => p.id === promoObj.id)) {
+    list.push(promoObj);
+  }
+}
+
 async function init() {
   try {
     const [resProd, resPitch, resRank, resPromo] = await Promise.all([
@@ -644,6 +675,7 @@ async function init() {
       fetch(PROXY(SHEET_PROMO)).then(r => r.text())
     ]);
 
+    // 1. Parse Pitch
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = (row['product_code'] || "").trim();
       if(code) PITCH_MAP.set(code, {
@@ -651,32 +683,7 @@ async function init() {
       });
     });
 
-    Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      const id = (row['promo_id']||"").trim();
-      if(!id) return;
-      
-      const promo = {
-        id: id,
-        title: row['title'] || "未命名活動",
-        content: row['content'] || "",
-        img: row['img_url'] || "",
-        start: row['start_date'],
-        end: row['end_date'],
-        color: row['bg_color'] || "#fff"
-      };
-      
-      PROMO_LIST.push(promo);
-      PROMO_MAP.set(id, promo);
-
-      const rawRelated = row['related_codes'] || "";
-      const relatedCodes = rawRelated.split(/[\r\n,]+/).map(c => c.trim()).filter(c => c);
-      
-      relatedCodes.forEach(pCode => {
-        if(!PRODUCT_TO_PROMO_MAP.has(pCode)) PRODUCT_TO_PROMO_MAP.set(pCode, []);
-        PRODUCT_TO_PROMO_MAP.get(pCode).push(promo);
-      });
-    });
-
+    // 2. Parse Products (建構完整產品資料庫)
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
       const pick = (k) => row[Object.keys(row).find(key => key.toLowerCase() === k.toLowerCase())] || "";
       const code = String(pick("product_code")||"").trim();
@@ -700,6 +707,43 @@ async function init() {
       const group = classifyProduct(p.name, p.category);
       if(SECTIONS[group]) SECTIONS[group].items.push(p);
       else SECTIONS.other.items.push(p);
+    });
+
+    // 3. Parse Promo (利用產品資料庫進行擴展)
+    Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
+      const id = (row['promo_id']||"").trim();
+      if(!id) return;
+      
+      const promo = {
+        id: id,
+        title: row['title'] || "未命名活動",
+        content: row['content'] || "",
+        img: row['img_url'] || "",
+        start: row['start_date'],
+        end: row['end_date'],
+        color: row['bg_color'] || "#fff"
+      };
+      
+      PROMO_LIST.push(promo);
+      PROMO_MAP.set(id, promo);
+
+      // 擴展邏輯：支援多重關鍵字與產品代碼
+      const rawRelated = row['related_codes'] || "";
+      // 用 [換行, 逗號, 空白] 來切割
+      const tokens = rawRelated.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+      
+      tokens.forEach(token => {
+        if (PRODUCT_MAP.has(token)) {
+          // A. 如果 token 是產品代碼 -> 直接加入
+          addPromoToProduct(token, promo);
+        } else {
+          // B. 如果 token 是關鍵字 -> 搜尋並加入所有符合產品
+          const matchedCodes = findProductsByKeyword(token);
+          if (matchedCodes.length > 0) {
+            matchedCodes.forEach(c => addPromoToProduct(c, promo));
+          }
+        }
+      });
     });
 
     processRankings(resRank);
