@@ -257,6 +257,21 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 .promo-d { font-size: 11px; color: #78909c; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .promo-date { font-size: 10px; color: var(--promo-color); margin-top: 8px; font-weight: 700; }
 
+/* [NEW] EXPIRED STYLE */
+.promo-card.expired {
+  background: #455a64 !important; /* Dark Gray */
+  border-color: #37474f;
+}
+.promo-card.expired .promo-t { color: #cfd8dc; text-decoration: line-through; }
+.promo-card.expired .promo-d { color: #b0bec5; }
+.promo-card.expired .promo-date { color: #ef5350; font-weight: bold; }
+.promo-card.expired .promo-img { filter: grayscale(100%); opacity: 0.6; }
+.promo-card.expired .promo-date::after {
+  content: ' (已結束)';
+  margin-left: 4px;
+  color: #ffcdd2; font-weight: normal;
+}
+
 /* 閃爍動畫 */
 @keyframes flashPromo { 0%,100% { border-color: transparent; } 50% { border-color: var(--promo-color); box-shadow: 0 0 0 4px rgba(255,152,0,0.3); } }
 .flash-promo { animation: flashPromo 1.5s ease-in-out infinite; }
@@ -638,17 +653,17 @@ function findProductsByKeyword(keyword) {
     '保健': 'health', '健康': 'health',
     '飲品': 'drinks', '飲料': 'drinks'
   };
-  const targetType = typeMap[k]; // undefined if no match
+  const targetType = typeMap[k]; 
 
   const matches = [];
   PRODUCT_MAP.forEach(p => {
     const pType = classifyProduct(p.name, p.category);
-    // 1. 類別對應 (例如 "美容" -> 所有 beauty)
+    // 1. 類別對應
     if(targetType && pType === targetType) {
       matches.push(p.code);
       return;
     }
-    // 2. 文字包含 (例如 "面膜" -> 所有含面膜的產品)
+    // 2. 文字包含
     if(p.category.includes(k) || p.name.includes(k)) {
       matches.push(p.code);
       return;
@@ -659,7 +674,6 @@ function findProductsByKeyword(keyword) {
 
 function addPromoToProduct(pCode, promoObj) {
   if(!PRODUCT_TO_PROMO_MAP.has(pCode)) PRODUCT_TO_PROMO_MAP.set(pCode, []);
-  // 避免重複 (例如同時輸入 "美容" 和 "面膜", 同一產品可能被匹配兩次)
   const list = PRODUCT_TO_PROMO_MAP.get(pCode);
   if(!list.some(p => p.id === promoObj.id)) {
     list.push(promoObj);
@@ -709,7 +723,7 @@ async function init() {
       else SECTIONS.other.items.push(p);
     });
 
-    // 3. Parse Promo (利用產品資料庫進行擴展)
+    // 3. Parse Promo
     Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const id = (row['promo_id']||"").trim();
       if(!id) return;
@@ -729,15 +743,12 @@ async function init() {
 
       // 擴展邏輯：支援多重關鍵字與產品代碼
       const rawRelated = row['related_codes'] || "";
-      // 用 [換行, 逗號, 空白] 來切割
       const tokens = rawRelated.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
       
       tokens.forEach(token => {
         if (PRODUCT_MAP.has(token)) {
-          // A. 如果 token 是產品代碼 -> 直接加入
           addPromoToProduct(token, promo);
         } else {
-          // B. 如果 token 是關鍵字 -> 搜尋並加入所有符合產品
           const matchedCodes = findProductsByKeyword(token);
           if (matchedCodes.length > 0) {
             matchedCodes.forEach(c => addPromoToProduct(c, promo));
@@ -810,11 +821,26 @@ function switchRank(type) {
 function renderPromotions() {
   const grid = document.getElementById("promo-grid");
   grid.innerHTML = "";
+  
+  const today = new Date();
+  today.setHours(0,0,0,0); // Compare dates only
+
   PROMO_LIST.forEach(promo => {
     const card = document.createElement("div");
     card.className = "promo-card";
     card.id = "promo-" + promo.id;
     if(promo.color && promo.color !== '#fff') card.style.background = promo.color;
+
+    // [New] Check Expiration
+    if(promo.end) {
+      const parts = promo.end.split('/');
+      if(parts.length === 3) {
+        const endDate = new Date(parts[0], parts[1]-1, parts[2]);
+        if(endDate < today) {
+          card.classList.add('expired');
+        }
+      }
+    }
 
     const imgHtml = promo.img ? `<img src="${promo.img}" class="promo-img">` : `<span class="material-icons-round" style="color:#ccc">image</span>`;
     
