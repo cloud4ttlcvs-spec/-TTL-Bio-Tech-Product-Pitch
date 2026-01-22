@@ -82,7 +82,7 @@ h1 { margin: 0; font-size: 20px; color: var(--primary); font-weight: 900; line-h
   width: 100%; max-width: 600px; position: relative; margin-bottom: 5px;
 }
 .search-input {
-  width: 100%; padding: 10px 40px 10px 15px;
+  width: 100%; padding: 10px 70px 10px 15px; /* Right padding increased for buttons */
   border-radius: 25px; border: 1px solid #cfd8dc;
   background: #f5f5f5; font-size: 14px; color: #37474f;
   transition: all 0.3s;
@@ -95,6 +95,13 @@ h1 { margin: 0; font-size: 20px; color: var(--primary); font-weight: 900; line-h
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   color: #90a4ae; pointer-events: none;
 }
+/* [NEW] Clear Button */
+.search-clear {
+  position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+  color: #b0bec5; cursor: pointer; display: none; /* Hidden by default */
+  font-size: 18px; background: #eceff1; border-radius: 50%; padding: 2px;
+}
+.search-clear:hover { color: #546e7a; background: #cfd8dc; }
 
 mark.highlight {
   background-color: var(--highlight-color); color: var(--highlight-text);
@@ -229,7 +236,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 }
 .promo-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee;
+  margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;
 }
 .promo-title-main { font-size: 20px; font-weight: 900; color: var(--promo-color); display: flex; align-items: center; gap:8px;}
 .btn-back-home {
@@ -237,6 +244,19 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 700;
   display: flex; align-items: center; gap: 4px; cursor: pointer;
 }
+
+/* [NEW] PROMO FILTER */
+.promo-filters {
+  display: flex; gap: 8px; overflow-x: auto; padding: 0 5px 15px;
+  scrollbar-width: none;
+}
+.promo-filters::-webkit-scrollbar { display: none; }
+.pf-tab {
+  flex-shrink: 0; padding: 6px 14px; border-radius: 20px; font-size: 12px;
+  font-weight: 500; background: #fff; border: 1px solid #e0e0e0;
+  color: #78909c; cursor: pointer; transition: 0.2s;
+}
+.pf-tab.active { background: var(--promo-color); color: #fff; border-color: var(--promo-color); font-weight: 700; }
 
 .promo-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
@@ -257,7 +277,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
 .promo-d { font-size: 11px; color: #78909c; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .promo-date { font-size: 10px; color: var(--promo-color); margin-top: 8px; font-weight: 700; }
 
-/* [NEW] EXPIRED STYLE */
+/* EXPIRED STYLE */
 .promo-card.expired {
   background: #455a64 !important; /* Dark Gray */
   border-color: #37474f;
@@ -401,6 +421,12 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
 }
 
+/* [NEW] PROMO FLOAT NAV (Back to Top) */
+.promo-floating-nav {
+  position: fixed; bottom: 20px; right: 15px; z-index: 2000;
+  display: none; /* Show only in promo view */
+}
+
 /* --- TOAST --- */
 #toast {
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -451,6 +477,7 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
     </div>
     <div class="search-box">
       <span class="material-icons-round search-icon">search</span>
+      <span class="material-icons-round search-clear" id="search-clear" onclick="clearSearch()">close</span>
       <input type="text" class="search-input" id="searchInput" placeholder="搜尋產品名稱、關鍵字..." oninput="handleSearch(this.value)">
     </div>
   </header>
@@ -485,8 +512,24 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
       <span class="material-icons-round" style="font-size:16px">arrow_back</span> 回列表
     </button>
   </div>
+  <div class="promo-filters">
+    <div class="pf-tab active" onclick="filterPromos('all')">全部</div>
+    <div class="pf-tab" onclick="filterPromos('health')">保健</div>
+    <div class="pf-tab" onclick="filterPromos('drinks')">飲品</div>
+    <div class="pf-tab" onclick="filterPromos('beauty')">美容</div>
+    <div class="pf-tab" onclick="filterPromos('cleaning')">清潔</div>
+    <div class="pf-tab" onclick="filterPromos('active')">進行中</div>
+    <div class="pf-tab" onclick="filterPromos('expired')">已結束</div>
+  </div>
+
   <div class="promo-grid" id="promo-grid">
     </div>
+  
+  <div class="promo-floating-nav" id="promo-fab" style="display:block;">
+    <div class="float-btn btn-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+      <span class="material-icons-round">arrow_upward</span>
+    </div>
+  </div>
 </div>
 
 <div id="promo-modal" onclick="closePromoModal()">
@@ -633,7 +676,8 @@ function classifyProduct(name, originalCat) {
   const n = name.toLowerCase();
   const c = originalCat.toLowerCase();
   if (n.includes("黑麥汁") || n.includes("甘益守禮盒") || n.includes("纖麥汁")) return "drinks";
-  if (n.includes("啤酒花") && (n.includes("洗面") || n.includes("沐浴") || n.includes("洗手"))) return "cleaning";
+  if (n.includes("洗手") || n.includes("潔手")) return "cleaning";
+  if (n.includes("啤酒花") && (n.includes("洗面") || n.includes("沐浴") || n.includes("洗") || n.includes("皂"))) return "cleaning";
   if (n.includes("易洗樂") || n.includes("洗潔") || n.includes("洗衣") || n.includes("洗碗") || n.includes("菜瓜布") || c.includes("清潔") || (n.includes("洗") && n.includes("精")) || n.includes("皂")) return "cleaning";
   
   const beautyKeywords = ["vinata", "面膜", "精華", "霜", "露", "乳液", "潔顏", "卸妝", "美白", "保濕", "抗皺", "潤", "透", "亮", "膚", "痘", "洗髮", "沐浴"];
@@ -642,6 +686,17 @@ function classifyProduct(name, originalCat) {
   const healthKeywords = ["安可健", "s11", "益生菌", "納豆", "紅麴", "魚油", "鈣", "葡萄糖胺", "葉黃素", "膠囊", "錠", "酵素", "滴雞精"];
   if (c.includes("保健") || c.includes("健康") || healthKeywords.some(kw => n.includes(kw))) return "health";
   return "other";
+}
+
+// Helper: Check if promo is active (not expired)
+function isPromoActive(promo) {
+  if(!promo.end) return true;
+  const parts = promo.end.split('/');
+  if(parts.length !== 3) return true;
+  const endDate = new Date(parts[0], parts[1]-1, parts[2]);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return endDate >= today;
 }
 
 // 根據關鍵字找出產品 (支援類別對應 & 文字搜尋)
@@ -658,12 +713,10 @@ function findProductsByKeyword(keyword) {
   const matches = [];
   PRODUCT_MAP.forEach(p => {
     const pType = classifyProduct(p.name, p.category);
-    // 1. 類別對應
     if(targetType && pType === targetType) {
       matches.push(p.code);
       return;
     }
-    // 2. 文字包含
     if(p.category.includes(k) || p.name.includes(k)) {
       matches.push(p.code);
       return;
@@ -689,7 +742,6 @@ async function init() {
       fetch(PROXY(SHEET_PROMO)).then(r => r.text())
     ]);
 
-    // 1. Parse Pitch
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = (row['product_code'] || "").trim();
       if(code) PITCH_MAP.set(code, {
@@ -697,7 +749,6 @@ async function init() {
       });
     });
 
-    // 2. Parse Products (建構完整產品資料庫)
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
       const pick = (k) => row[Object.keys(row).find(key => key.toLowerCase() === k.toLowerCase())] || "";
       const code = String(pick("product_code")||"").trim();
@@ -723,7 +774,6 @@ async function init() {
       else SECTIONS.other.items.push(p);
     });
 
-    // 3. Parse Promo
     Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const id = (row['promo_id']||"").trim();
       if(!id) return;
@@ -735,15 +785,14 @@ async function init() {
         img: row['img_url'] || "",
         start: row['start_date'],
         end: row['end_date'],
-        color: row['bg_color'] || "#fff"
+        color: row['bg_color'] || "#fff",
+        relatedRaw: row['related_codes'] || "" // Store for filtering
       };
       
       PROMO_LIST.push(promo);
       PROMO_MAP.set(id, promo);
 
-      // 擴展邏輯：支援多重關鍵字與產品代碼
-      const rawRelated = row['related_codes'] || "";
-      const tokens = rawRelated.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+      const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
       
       tokens.forEach(token => {
         if (PRODUCT_MAP.has(token)) {
@@ -818,33 +867,61 @@ function switchRank(type) {
   renderRankingList(type);
 }
 
+// --- PROMO RENDER & FILTER ---
+let currentPromoFilter = 'all';
+
+function filterPromos(type) {
+  currentPromoFilter = type;
+  document.querySelectorAll(".pf-tab").forEach(el => {
+    el.classList.toggle("active", el.innerText === event.target.innerText);
+  });
+  renderPromotions();
+}
+
 function renderPromotions() {
   const grid = document.getElementById("promo-grid");
   grid.innerHTML = "";
   
-  const today = new Date();
-  today.setHours(0,0,0,0); // Compare dates only
-
   PROMO_LIST.forEach(promo => {
-    const card = document.createElement("div");
-    card.className = "promo-card";
-    card.id = "promo-" + promo.id;
-    if(promo.color && promo.color !== '#fff') card.style.background = promo.color;
-
-    // [New] Check Expiration
-    if(promo.end) {
-      const parts = promo.end.split('/');
-      if(parts.length === 3) {
-        const endDate = new Date(parts[0], parts[1]-1, parts[2]);
-        if(endDate < today) {
-          card.classList.add('expired');
+    const isActive = isPromoActive(promo);
+    
+    // FILTER LOGIC
+    if(currentPromoFilter === 'active' && !isActive) return;
+    if(currentPromoFilter === 'expired' && isActive) return;
+    
+    // Category Filter (Check related products)
+    if(['health', 'drinks', 'beauty', 'cleaning'].includes(currentPromoFilter)) {
+      // Find all related products
+      const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+      let match = false;
+      for(let token of tokens) {
+        // Try keyword match first
+        const typeMap = {'美容':'beauty', '保健':'health', '清潔':'cleaning', '飲品':'drinks'};
+        if(typeMap[token] === currentPromoFilter) { match = true; break; }
+        
+        // Try product match
+        let pCodes = [];
+        if(PRODUCT_MAP.has(token)) pCodes.push(token);
+        else pCodes = findProductsByKeyword(token);
+        
+        for(let pc of pCodes) {
+          const p = PRODUCT_MAP.get(pc);
+          if(p && classifyProduct(p.name, p.category) === currentPromoFilter) {
+            match = true; break;
+          }
         }
+        if(match) break;
       }
+      if(!match) return;
     }
 
+    const card = document.createElement("div");
+    card.className = "promo-card";
+    if(!isActive) card.classList.add('expired');
+    card.id = "promo-" + promo.id;
+    if(promo.color && promo.color !== '#fff' && isActive) card.style.background = promo.color;
+
     const imgHtml = promo.img ? `<img src="${promo.img}" class="promo-img">` : `<span class="material-icons-round" style="color:#ccc">image</span>`;
-    
-    // OnClick: Open Modal
     card.onclick = () => openPromoModal(promo.id);
 
     card.innerHTML = `
@@ -864,6 +941,9 @@ function renderUI(filterText = "") {
   const nav = document.getElementById("topNav");
   container.querySelectorAll('.cat-section').forEach(e => e.remove());
   if(!filterText) nav.innerHTML = ""; 
+
+  // [NEW] Toggle Clear Button
+  document.getElementById('search-clear').style.display = filterText ? 'block' : 'none';
 
   const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
   const highlight = (text, term) => {
@@ -909,8 +989,10 @@ function renderUI(filterText = "") {
       if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
         const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
         promos.forEach(pr => {
-          // Click sticker -> Go to promo view -> Open modal
-          stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+          // [FIX] Check Expiry Before Showing Sticker
+          if(isPromoActive(pr)) {
+            stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+          }
         });
       }
       
@@ -967,6 +1049,12 @@ function handleSearch(val) {
     renderUI(val.trim());
     document.getElementById("ranking-section").style.display = val ? 'none' : 'block';
   }, 300);
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  handleSearch('');
+  document.getElementById('searchInput').focus(); // Keep focus or blur as needed
 }
 
 function openLightbox(e, src) {
@@ -1096,7 +1184,7 @@ function showMainView(pushHistory = true) {
   }
 }
 
-// --- PROMO MODAL LOGIC (NEW) ---
+// --- PROMO MODAL LOGIC ---
 function openPromoModal(promoId) {
   event.stopPropagation();
   const promo = PROMO_MAP.get(promoId);
@@ -1119,7 +1207,7 @@ function closePromoModal() {
 function goToPromoDetail(promoId) {
   event.stopPropagation();
   showPromoView(promoId);
-  setTimeout(() => openPromoModal(promoId), 500); // Wait for view switch then open modal
+  setTimeout(() => openPromoModal(promoId), 500); 
 }
 
 // --- PWA LOGIC ---
