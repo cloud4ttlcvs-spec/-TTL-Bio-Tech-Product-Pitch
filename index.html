@@ -599,7 +599,57 @@ const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBP
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
 const SHEET_PROMO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEfLugUcwQdHTTu0NZcy2QHyMPvMaPpfU6g_p0MTrw3muXIGn3SPkISSPnbW9ou1GlHzRc6/pub?gid=74407584&single=true&output=csv&t=" + TS;
 
-const PROXY = (url) => "https://corsproxy.io/?" + encodeURIComponent(url);
+// --- CSV FETCH (Direct-first with proxy fallbacks) ---
+// NOTE: We avoid hard-depending on a single public proxy. If direct fetch fails,
+// we try a small set of fallbacks. Required resources (products/pitch) must load;
+// optional resources (rank/promo) will be skipped if unavailable.
+const PROXY_PROVIDERS = [
+  { name: "direct", build: (u) => u },
+  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(u) },
+  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) }
+];
+
+function looksLikeHtml(t) {
+  if (!t) return false;
+  const s = t.trim().slice(0, 300).toLowerCase();
+  return (
+    s.startsWith("<!doctype") ||
+    s.startsWith("<html") ||
+    s.includes("<head") ||
+    s.includes("<body") ||
+    s.includes("</html>")
+  );
+}
+
+async function fetchTextWithTimeout(url, timeoutMs = 15000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
+  let lastErr = null;
+  for (const p of PROXY_PROVIDERS) {
+    const u = p.build(sourceUrl);
+    try {
+      const t = await fetchTextWithTimeout(u, timeoutMs);
+      if (!t || t.trim().length < 20) throw new Error("empty response");
+      if (looksLikeHtml(t)) throw new Error("html response");
+      return t;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[CSV] ${label} failed via ${p.name}:`, e);
+    }
+  }
+  if (required) throw (lastErr || new Error("fetch failed"));
+  return null;
+}
 
 const SECTIONS = {
   health: { id: 'sec-health', title: "保健食品", icon: "health_and_safety", items: [] },
@@ -735,14 +785,11 @@ function addPromoToProduct(pCode, promoObj) {
 
 async function init() {
   try {
-    const [resProd, resPitch, resRank, resPromo] = await Promise.all([
-      fetch(PROXY(SHEET_PRODUCTS)).then(r => r.text()),
-      fetch(PROXY(SHEET_PITCH)).then(r => r.text()),
-      fetch(PROXY(SHEET_RANK)).then(r => r.text()),
-      fetch(PROXY(SHEET_PROMO)).then(r => r.text())
-    ]);
-
-    Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
+        const resProd = await fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true });
+    const resPitch = await fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true });
+    const resRank = await fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false });
+    const resPromo = await fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false });
+Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = (row['product_code'] || "").trim();
       if(code) PITCH_MAP.set(code, {
         title: row['pitch_title'] || "", content: row['pitch_content'] || "", tags: row['tags'] || ""
@@ -774,6 +821,7 @@ async function init() {
       else SECTIONS.other.items.push(p);
     });
 
+    if (resPromo) {
     Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const id = (row['promo_id']||"").trim();
       if(!id) return;
@@ -805,8 +853,9 @@ async function init() {
         }
       });
     });
+    }
 
-    processRankings(resRank);
+    if (resRank) processRankings(resRank);
     renderPromotions();
     renderUI();
     document.getElementById("loader").style.opacity = 0;
