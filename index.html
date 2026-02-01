@@ -1,3 +1,7 @@
+{
+type: uploaded file
+fileName: index.html
+fullContent:
 <!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -29,6 +33,7 @@
   --highlight-text: #d81b60;
   --sticky-offset: 185px; 
   --promo-color: #ff9800;
+  --new-tag-color: #ff5252; /* [NEW] Color for New Tag */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -95,7 +100,6 @@ h1 { margin: 0; font-size: 20px; color: var(--primary); font-weight: 900; line-h
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   color: #90a4ae; pointer-events: none;
 }
-/* [NEW] Clear Button */
 .search-clear {
   position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
   color: #b0bec5; cursor: pointer; display: none; /* Hidden by default */
@@ -169,9 +173,21 @@ main { max-width: 800px; margin: 0 auto; padding: 0 15px; }
   background: #fff; border-radius: 12px; 
   box-shadow: var(--card-shadow); border: 1px solid #f0f0f0; 
   overflow: hidden; cursor: pointer; transition: 0.2s;
-  scroll-margin-top: var(--sticky-offset); 
+  scroll-margin-top: var(--sticky-offset);
+  position: relative; /* [NEW] For badge positioning */
 }
 .p-card.active { border-color: var(--primary); box-shadow: 0 4px 20px rgba(0,137,123,0.2); }
+
+/* [NEW] New Product Badge */
+.new-badge {
+  position: absolute; top: 0; left: 0;
+  background: var(--new-tag-color); color: #fff;
+  font-size: 10px; font-weight: 700; padding: 3px 8px 3px 6px;
+  border-bottom-right-radius: 10px;
+  z-index: 10;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.15);
+  display: flex; align-items: center; gap: 2px;
+}
 
 .p-header { display: flex; align-items: center; padding: 10px; gap: 10px; position: relative; z-index: 2; background: #fff; }
 
@@ -792,7 +808,10 @@ async function init() {
 Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = (row['product_code'] || "").trim();
       if(code) PITCH_MAP.set(code, {
-        title: row['pitch_title'] || "", content: row['pitch_content'] || "", tags: row['tags'] || ""
+        title: row['pitch_title'] || "", 
+        content: row['pitch_content'] || "", 
+        tags: row['tags'] || "",
+        isNew: String(row['is_new'] || "").trim().toUpperCase() === 'TRUE' // [NEW] Parsing new column
       });
     });
 
@@ -1063,6 +1082,12 @@ function renderUI(filterText = "") {
           <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
         `;
       }
+      
+      // [NEW] New Product Badge Logic
+      let newBadgeHtml = "";
+      if(p.pitch && p.pitch.isNew) {
+        newBadgeHtml = `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`;
+      }
 
       const card = document.createElement("div");
       card.className = "p-card";
@@ -1070,6 +1095,7 @@ function renderUI(filterText = "") {
       card.onclick = (e) => toggleAccordion(card);
       
       card.innerHTML = `
+        ${newBadgeHtml}
         <div class="p-header">
           <div class="p-img-box" onclick="openLightbox(event, '${p.photo}')">${imgHtml}</div>
           <div class="p-basic-info">
@@ -1322,3 +1348,4 @@ init();
 </script>
 </body>
 </html>
+}
