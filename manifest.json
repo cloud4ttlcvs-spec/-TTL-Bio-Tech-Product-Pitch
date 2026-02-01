@@ -1,6 +1,6 @@
 {
-  "name": "台酒生技話術系統",
-  "short_name": "TTL話術",
+  "name": "台酒生技銷售支援系統",
+  "short_name": "銷售支援",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f8f9fa",
@@ -18,4 +18,5 @@
       "type": "image/png"
     }
   ]
+
 }
