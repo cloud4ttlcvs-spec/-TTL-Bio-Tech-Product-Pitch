@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
-<title>台酒生技產品話術系統</title>
+<title>Product Pitch｜TTL Bio-Tech</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#00897b">
@@ -31,6 +31,7 @@
   --promo-color: #ff9800;
   --new-tag-color: #ff5252;
   
+  /* Standard Sizes */
   --sz-p-img: 65px;
   --sz-p-title: 14px;
   --sz-p-price: 16px;
@@ -38,14 +39,15 @@
   --sz-rank-img: 90px;
 }
 
+/* --- LARGE MODE (Senior Friendly) --- */
 body.large-mode {
-  --sz-p-img: 100px;
-  --sz-p-title: 18px;
-  --sz-p-price: 20px;
-  --sz-p-desc: 16px;
+  --sz-p-img: 100px;      /* Image +50% */
+  --sz-p-title: 18px;     /* Title +30% */
+  --sz-p-price: 20px;     /* Price Larger */
+  --sz-p-desc: 16px;      /* Content Readable */
   --sz-rank-img: 110px;
-  --text-main: #000000;
-  --text-sub: #37474f;
+  --text-main: #000000;   /* High Contrast */
+  --text-sub: #37474f;    /* Darker Gray */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -1249,3 +1251,56 @@ init();
 </script>
 </body>
 </html>
+}
+
+```javascript
+// sw.js - v16 強制更新版
+const CACHE_NAME = 'ttl-pwa-v16'; // 👈 版本升級到 v16
+const urlsToCache = [
+  './',
+  './index.html',
+  './manifest.json',
+  './LOGO.png', // 👈 確保檔名一致 (注意大小寫)
+  '[https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap](https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap)',
+  '[https://fonts.googleapis.com/icon?family=Material+Icons+Round](https://fonts.googleapis.com/icon?family=Material+Icons+Round)',
+  '[https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js](https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js)'
+];
+
+self.addEventListener('install', event => {
+  self.skipWaiting(); // 強制安裝
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName); // 清除舊版
+          }
+        })
+      );
+    })
+  );
+  return self.clients.claim(); // 立即接管
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        if (response) return response;
+        return fetch(event.request);
+      })
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
