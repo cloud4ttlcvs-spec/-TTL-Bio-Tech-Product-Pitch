@@ -810,27 +810,39 @@ function addPromoToProduct(pCode, promoObj) {
 
 async function init() {
   try {
-        const resProd = await fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true });
-    const resPitch = await fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true });
-    const resRank = await fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false });
-    const resPromo = await fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false });
-Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
+    // [OPTIMIZATION] Parallel Fetching
+    const [resProd, resPitch, resRank, resPromo] = await Promise.all([
+      fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
+      fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true }),
+      fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false }),
+      fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
+    ]);
+
+    Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = (row['product_code'] || "").trim();
       if(code) PITCH_MAP.set(code, {
         title: row['pitch_title'] || "", 
         content: row['pitch_content'] || "", 
         tags: row['tags'] || "",
-        isNew: String(row['is_new'] || "").trim().toUpperCase() === 'TRUE' // [NEW] Parsing new column
+        isNew: String(row['is_new'] || "").trim().toUpperCase() === 'TRUE' 
       });
     });
 
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
-      const pick = (k) => row[Object.keys(row).find(key => key.toLowerCase() === k.toLowerCase())] || "";
+      // [FIX] Robust column matching with trim()
+      const pick = (k) => {
+        const key = Object.keys(row).find(x => x.trim().toLowerCase() === k.trim().toLowerCase());
+        return key ? row[key] : "";
+      };
+      
       const code = String(pick("product_code")||"").trim();
       let name = String(pick("product_name")||"").trim();
       
-      // [FIX] Added is_hidden_pp check
-      if(!code || !name || String(pick("is_gift")||"").toLowerCase().includes('true') || String(pick("is_gift")||"").includes('是') || String(pick("is_hidden_pp")||"").toLowerCase().includes('true')) return;
+      // [FIX] is_hidden_pp check
+      const isHidden = String(pick("is_hidden_pp")||"").trim().toLowerCase().includes('true');
+      const isGift = String(pick("is_gift")||"").toLowerCase().includes('true') || String(pick("is_gift")||"").includes('是');
+      
+      if(!code || !name || isGift || isHidden) return;
 
       if (name.includes("洗卸潔顏露3入組") || name.includes("甘益守禮盒")) return; 
       const hiddenSets = ["Set-01", "Set-02", "Set-03"];
