@@ -1,5 +1,5 @@
 /* sw.js - 強制更新版 */
-const CACHE_NAME = 'ttl-pwa-v13'; // 升級版本號
+const CACHE_NAME = 'ttl-pwa-v23'; // 升級版本號
 const urlsToCache = [
   './',
   './index.html',
@@ -52,4 +52,5 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+
 });
