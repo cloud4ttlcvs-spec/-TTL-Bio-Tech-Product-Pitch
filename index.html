@@ -150,8 +150,6 @@ mark.highlight {
   display: flex; gap: 12px; overflow-x: auto; 
   padding-top: 10px; padding-bottom: 5px; 
   scroll-behavior: smooth; 
-  
-  /* [NEW] Scroll Snap Settings */
   scroll-snap-type: x mandatory; 
   overscroll-behavior-x: contain;
 }
@@ -160,8 +158,6 @@ mark.highlight {
   flex: 0 0 90px; 
   display: flex; flex-direction: column; align-items: center; gap: 6px; 
   cursor: pointer;
-  
-  /* [NEW] Scroll Snap Align */
   scroll-snap-align: start; 
 }
 
@@ -832,7 +828,9 @@ Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row =>
       const pick = (k) => row[Object.keys(row).find(key => key.toLowerCase() === k.toLowerCase())] || "";
       const code = String(pick("product_code")||"").trim();
       let name = String(pick("product_name")||"").trim();
-      if(!code || !name || String(pick("is_gift")||"").toLowerCase().includes('true') || String(pick("is_gift")||"").includes('是')) return;
+      
+      // [FIX] Added is_hidden_pp check
+      if(!code || !name || String(pick("is_gift")||"").toLowerCase().includes('true') || String(pick("is_gift")||"").includes('是') || String(pick("is_hidden_pp")||"").toLowerCase().includes('true')) return;
 
       if (name.includes("洗卸潔顏露3入組") || name.includes("甘益守禮盒")) return; 
       const hiddenSets = ["Set-01", "Set-02", "Set-03"];
