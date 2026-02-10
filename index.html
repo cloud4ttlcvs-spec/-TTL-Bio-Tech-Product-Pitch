@@ -84,7 +84,7 @@ body {
 @keyframes splashEntrance { to { opacity: 1; transform: scale(1); } }
 @keyframes splashFadeIn { to { opacity: 1; } }
 
-/* --- iOS INSTALL PROMPT (V3.5 - Icon Animated) --- */
+/* --- iOS INSTALL PROMPT --- */
 #ios-prompt {
   display: none; 
   position: fixed; 
@@ -109,7 +109,6 @@ body {
 .ios-p-text { font-size: 15px; line-height: 1.6; margin: 0; }
 .ios-p-text b { color: #fff; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.3); }
 
-/* The Animated Icon */
 .ios-p-text .icon-anim { 
   vertical-align: middle; 
   font-size: 22px; 
@@ -537,9 +536,8 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 </div>
 
 <script>
-// --- SPLASH & iOS PROMPT LOGIC (V3.5) ---
+// --- SPLASH & iOS PROMPT LOGIC (V3.6: Auto-Retry + Improved Prompt) ---
 window.addEventListener('load', () => {
-  // 1. Splash Out (2.3s)
   setTimeout(() => {
     const splash = document.getElementById('splash-screen');
     if(splash) {
@@ -547,24 +545,19 @@ window.addEventListener('load', () => {
       setTimeout(() => { splash.style.display = 'none'; }, 600);
     }
     
-    // 2. iOS Prompt In (Wait until Splash is mostly gone)
     setTimeout(() => {
-      // Enhanced iOS Detection
       const ua = window.navigator.userAgent.toLowerCase();
       const isIos = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isInStandalone = window.navigator.standalone === true;
       
       if (isIos && !isInStandalone) {
         const prompt = document.getElementById('ios-prompt');
-        // Make it flexible first (display: flex)
         prompt.classList.add('visible');
-        
-        // Then animate opacity/transform in next frame
         requestAnimationFrame(() => {
           prompt.classList.add('animate-in');
         });
       }
-    }, 800); // 800ms delay after splash fade starts
+    }, 800);
   }, 2300);
 });
 
@@ -582,12 +575,52 @@ const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBP
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
 const SHEET_PROMO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEfLugUcwQdHTTu0NZcy2QHyMPvMaPpfU6g_p0MTrw3muXIGn3SPkISSPnbW9ou1GlHzRc6/pub?gid=74407584&single=true&output=csv&t=" + TS;
 
-// --- CSV FETCH (Double Cache-Busting) ---
+// --- CSV FETCH HELPER (Auto-Retry) ---
+async function fetchTextWithRetry(url, timeoutMs = 15000, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      const res = await fetch(url, { 
+        signal: ctrl.signal, 
+        cache: "no-store", 
+        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } 
+      });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (err) {
+      if (i === retries) throw err;
+      await new Promise(r => setTimeout(r, 1000)); // Wait 1s
+    }
+  }
+}
+
+// --- CSV FETCH SMART (Double Cache-Busting + Proxy) ---
 const PROXY_PROVIDERS = [
   { name: "direct", build: (u) => u + "&_bust=" + Date.now() }, 
   { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(u + "&_bust=" + Date.now()) },
   { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u + "&_bust=" + Date.now()) }
 ];
+
+async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
+  let lastErr = null;
+  for (const p of PROXY_PROVIDERS) {
+    const u = p.build(sourceUrl);
+    try {
+      // Use retry helper
+      const t = await fetchTextWithRetry(u, timeoutMs);
+      if (!t || t.trim().length < 20) throw new Error("empty response");
+      if (looksLikeHtml(t)) throw new Error("html response");
+      return t;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[CSV] ${label} failed via ${p.name}:`, e);
+    }
+  }
+  if (required) throw (lastErr || new Error("fetch failed"));
+  return null;
+}
 
 function looksLikeHtml(t) {
   if (!t) return false;
@@ -599,40 +632,6 @@ function looksLikeHtml(t) {
     s.includes("<body") ||
     s.includes("</html>")
   );
-}
-
-async function fetchTextWithTimeout(url, timeoutMs = 15000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { 
-      signal: ctrl.signal, 
-      cache: "no-store", 
-      headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } 
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    return await res.text();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
-  let lastErr = null;
-  for (const p of PROXY_PROVIDERS) {
-    const u = p.build(sourceUrl);
-    try {
-      const t = await fetchTextWithTimeout(u, timeoutMs);
-      if (!t || t.trim().length < 20) throw new Error("empty response");
-      if (looksLikeHtml(t)) throw new Error("html response");
-      return t;
-    } catch (e) {
-      lastErr = e;
-      console.warn(`[CSV] ${label} failed via ${p.name}:`, e);
-    }
-  }
-  if (required) throw (lastErr || new Error("fetch failed"));
-  return null;
 }
 
 const SECTIONS = {
@@ -783,7 +782,7 @@ function addPromoToProduct(pCode, promoObj) {
   }
 }
 
-// [FIX] Robust Helper for Case-Insensitive Key Access
+// [FIX] Robust Helper
 const getVal = (row, targetKey) => {
   if (!row) return "";
   const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === targetKey.trim().toLowerCase());
@@ -792,6 +791,7 @@ const getVal = (row, targetKey) => {
 
 async function init() {
   try {
+    // 1. Fetch CSVs
     const [resProd, resPitch, resRank, resPromo] = await Promise.all([
       fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
       fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true }),
@@ -799,13 +799,11 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // Parse PITCH Sheet -> Store as ARRAY to support duplicates
+    // 2. Parse Pitch
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
-      
       const pitchName = getVal(row, 'product_name').trim(); 
       const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
-      // Broad Hidden Logic: TRUE, YES, 1, Y
       const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1' || rawHidden === 'Y'); 
 
       if(code) {
@@ -821,38 +819,31 @@ async function init() {
       }
     });
 
+    // 3. Parse Products
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
       let originalName = getVal(row, 'product_name').trim();
-      
       const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
       
-      // [FIX] INDEX-BASED LOGIC (Safe Queue)
       let pitchData = null;
       if (PITCH_MAP.has(code)) {
         const list = PITCH_MAP.get(code);
         if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
         const currentIndex = PITCH_COUNTER.get(code);
-        
         if (currentIndex < list.length) {
           pitchData = list[currentIndex];
-          PITCH_COUNTER.set(code, currentIndex + 1); // Increment count
+          PITCH_COUNTER.set(code, currentIndex + 1);
         }
       }
 
-      // [CHECK 1] Hidden Logic
       if (pitchData && pitchData.isHidden) return; 
-      
-      // [CHECK 2] Basic Integrity
       if(!code || !originalName || isGift) return;
 
       if (originalName.includes("洗卸潔顏露3入組") || originalName.includes("甘益守禮盒")) return; 
       const hiddenSets = ["Set-01", "Set-02", "Set-03"];
       if (hiddenSets.some(s => code.includes(s))) return;
 
-      // [CHECK 3] Name Logic
       let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
-
       if (!pitchData || !pitchData.name) {
           finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
       }
@@ -875,48 +866,51 @@ async function init() {
       else SECTIONS.other.items.push(p);
     });
 
+    // 4. Parse Promo
     if (resPromo) {
-    Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      const id = getVal(row, 'promo_id').trim();
-      if(!id) return;
-      
-      const promo = {
-        id: id,
-        title: getVal(row, 'title') || "未命名活動",
-        content: getVal(row, 'content') || "",
-        img: getVal(row, 'img_url') || "",
-        start: getVal(row, 'start_date'),
-        end: getVal(row, 'end_date'),
-        color: getVal(row, 'bg_color') || "#fff",
-        relatedRaw: getVal(row, 'related_codes') || "" 
-      };
-      
-      PROMO_LIST.push(promo);
-      PROMO_MAP.set(id, promo);
+      Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
+        const id = getVal(row, 'promo_id').trim();
+        if(!id) return;
+        
+        const promo = {
+          id: id,
+          title: getVal(row, 'title') || "未命名活動",
+          content: getVal(row, 'content') || "",
+          img: getVal(row, 'img_url') || "",
+          start: getVal(row, 'start_date'),
+          end: getVal(row, 'end_date'),
+          color: getVal(row, 'bg_color') || "#fff",
+          relatedRaw: getVal(row, 'related_codes') || "" 
+        };
+        
+        PROMO_LIST.push(promo);
+        PROMO_MAP.set(id, promo);
 
-      const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
-      
-      tokens.forEach(token => {
-        if (PRODUCT_MAP.has(token)) {
-          addPromoToProduct(token, promo);
-        } else {
-          const matchedCodes = findProductsByKeyword(token);
-          if (matchedCodes.length > 0) {
-            matchedCodes.forEach(c => addPromoToProduct(c, promo));
+        const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+        tokens.forEach(token => {
+          if (PRODUCT_MAP.has(token)) {
+            addPromoToProduct(token, promo);
+          } else {
+            const matchedCodes = findProductsByKeyword(token);
+            if (matchedCodes.length > 0) {
+              matchedCodes.forEach(c => addPromoToProduct(c, promo));
+            }
           }
-        }
+        });
       });
-    });
     }
 
+    // 5. Parse Rank
     if (resRank) processRankings(resRank);
+    
+    // 6. Render
     renderPromotions();
     renderUI();
     document.getElementById("loader").style.opacity = 0;
     setTimeout(() => document.getElementById("loader").remove(), 500);
 
   } catch(e) {
-    alert("讀取資料失敗"); console.error(e);
+    alert("讀取資料失敗，請稍後重試"); console.error(e);
   }
 }
 
