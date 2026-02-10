@@ -84,6 +84,34 @@ body {
 @keyframes splashEntrance { to { opacity: 1; transform: scale(1); } }
 @keyframes splashFadeIn { to { opacity: 1; } }
 
+/* --- iOS INSTALL PROMPT --- */
+#ios-prompt {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(150%);
+  width: 90%; max-width: 360px;
+  background: rgba(38, 50, 56, 0.95); backdrop-filter: blur(10px);
+  color: #fff; padding: 15px 20px; border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  z-index: 100000;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#ios-prompt.show { transform: translateX(-50%) translateY(0); }
+.ios-p-text { font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
+.ios-p-text .icon { vertical-align: middle; font-size: 18px; color: #4fc3f7; margin: 0 4px; }
+.ios-arrow {
+  color: #4fc3f7; font-size: 24px; margin-top: 5px;
+  animation: bounceArrow 1.5s infinite;
+}
+.ios-close {
+  position: absolute; top: 10px; right: 10px;
+  color: #b0bec5; background: none; border: none; font-size: 18px; cursor: pointer;
+}
+@keyframes bounceArrow {
+  0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+  40% {transform: translateY(5px);}
+  60% {transform: translateY(3px);}
+}
+
 /* --- STICKY WRAPPER --- */
 .sticky-header-group {
   position: sticky; top: 0; z-index: 1000;
@@ -327,6 +355,19 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   <div class="splash-brand">台酒生技 TTL BIO-TECH</div>
 </div>
 
+<div id="ios-prompt" class="hidden">
+  <button class="ios-close" onclick="closeIosPrompt()">
+    <span class="material-icons-round">close</span>
+  </button>
+  <div class="ios-p-text">
+    點擊下方 <span class="material-icons-round icon">ios_share</span> 分享按鈕<br>
+    並選擇 <b>「加入主畫面」</b>
+  </div>
+  <div class="ios-arrow">
+    <span class="material-icons-round">arrow_downward</span>
+  </div>
+</div>
+
 <div id="loader">
   <div class="loader-spin"></div>
   <div style="color:#546e7a;font-weight:700;font-size:12px">資料載入中...</div>
@@ -476,7 +517,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 </div>
 
 <script>
-// --- SPLASH LOGIC (2.3s Delay) ---
+// --- SPLASH & iOS PROMPT LOGIC ---
 window.addEventListener('load', () => {
   setTimeout(() => {
     const splash = document.getElementById('splash-screen');
@@ -484,8 +525,22 @@ window.addEventListener('load', () => {
       splash.classList.add('hidden');
       setTimeout(() => { splash.style.display = 'none'; }, 600);
     }
+    
+    // Check iOS Prompt
+    const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isInStandalone = window.navigator.standalone === true;
+    
+    if (isIos && !isInStandalone) {
+      setTimeout(() => {
+        document.getElementById('ios-prompt').classList.add('show');
+      }, 1000); // Show 1s after splash
+    }
   }, 2300);
 });
+
+function closeIosPrompt() {
+  document.getElementById('ios-prompt').classList.remove('show');
+}
 
 const TS = Date.now();
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
@@ -495,7 +550,7 @@ const SHEET_PROMO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEf
 
 // --- CSV FETCH (Double Cache-Busting) ---
 const PROXY_PROVIDERS = [
-  { name: "direct", build: (u) => u + "&_bust=" + Date.now() }, // Force new request
+  { name: "direct", build: (u) => u + "&_bust=" + Date.now() }, 
   { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(u + "&_bust=" + Date.now()) },
   { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u + "&_bust=" + Date.now()) }
 ];
@@ -518,8 +573,8 @@ async function fetchTextWithTimeout(url, timeoutMs = 15000) {
   try {
     const res = await fetch(url, { 
       signal: ctrl.signal, 
-      cache: "no-store", // Browser: Don't cache
-      headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } // Proxy: Don't cache
+      cache: "no-store", 
+      headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } 
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     return await res.text();
@@ -555,7 +610,7 @@ const SECTIONS = {
 };
 
 let PITCH_MAP = new Map(); 
-let PITCH_COUNTER = new Map(); // [NEW] Track count for sequential mapping
+let PITCH_COUNTER = new Map(); // Track count for sequential mapping
 let PRODUCT_MAP = new Map();
 let PROMO_LIST = [];
 let PROMO_MAP = new Map();
@@ -710,10 +765,9 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // Parse PITCH Sheet -> Store as ARRAY to support duplicates
+    // Parse PITCH Sheet -> Store as ARRAY
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
-      
       const pitchName = getVal(row, 'product_name').trim(); 
       const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
       // Broad Hidden Logic: TRUE, YES, 1, Y
@@ -735,22 +789,18 @@ async function init() {
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
       let originalName = getVal(row, 'product_name').trim();
-      
       const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
       
       // [FIX] INDEX-BASED LOGIC (Safe Queue)
       let pitchData = null;
       if (PITCH_MAP.has(code)) {
         const list = PITCH_MAP.get(code);
-        
-        // Initialize counter if not exists
         if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
         const currentIndex = PITCH_COUNTER.get(code);
         
-        // Get data if index exists
         if (currentIndex < list.length) {
           pitchData = list[currentIndex];
-          PITCH_COUNTER.set(code, currentIndex + 1); // Increment for next match
+          PITCH_COUNTER.set(code, currentIndex + 1); // Increment count
         }
       }
 
