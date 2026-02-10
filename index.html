@@ -84,49 +84,54 @@ body {
 @keyframes splashEntrance { to { opacity: 1; transform: scale(1); } }
 @keyframes splashFadeIn { to { opacity: 1; } }
 
-/* --- iOS INSTALL PROMPT (V3.3 Fixed) --- */
+/* --- iOS INSTALL PROMPT (V3.5 - Icon Animated) --- */
 #ios-prompt {
-  display: none; /* Initially Hidden */
+  display: none; 
   position: fixed; 
-  bottom: 20px; 
-  bottom: calc(20px + env(safe-area-inset-bottom)); /* iPhone X+ Safe Area */
+  bottom: 30px; 
+  bottom: calc(30px + env(safe-area-inset-bottom)); 
   left: 50%; 
   width: 90%; max-width: 360px;
   background: rgba(38, 50, 56, 0.95); backdrop-filter: blur(10px);
-  color: #fff; padding: 15px 20px; border-radius: 16px;
+  color: #fff; padding: 20px; border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.3);
   z-index: 100000;
   flex-direction: column; align-items: center; text-align: center;
   
-  /* Initial State for Animation */
   opacity: 0;
   transform: translateX(-50%) translateY(20px);
   transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-#ios-prompt.visible {
-  display: flex; /* Show it */
+#ios-prompt.visible { display: flex; }
+#ios-prompt.animate-in { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.ios-p-text { font-size: 15px; line-height: 1.6; margin: 0; }
+.ios-p-text b { color: #fff; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.3); }
+
+/* The Animated Icon */
+.ios-p-text .icon-anim { 
+  vertical-align: middle; 
+  font-size: 22px; 
+  color: #4fc3f7; 
+  margin: 0 4px; 
+  display: inline-block;
+  animation: iconPulse 1.5s infinite ease-in-out;
 }
 
-#ios-prompt.animate-in {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0); /* Slide Up */
+@keyframes iconPulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(79, 195, 247, 0)); }
+  50% { transform: scale(1.2); filter: drop-shadow(0 0 5px rgba(79, 195, 247, 0.6)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(79, 195, 247, 0)); }
 }
 
-.ios-p-text { font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
-.ios-p-text .icon { vertical-align: middle; font-size: 18px; color: #4fc3f7; margin: 0 4px; }
-.ios-arrow {
-  color: #4fc3f7; font-size: 24px; margin-top: 5px;
-  animation: bounceArrow 1.5s infinite;
+.ios-sub-text {
+  margin-top: 8px; font-size: 12px; color: #b0bec5;
 }
+
 .ios-close {
   position: absolute; top: 10px; right: 10px;
-  color: #b0bec5; background: none; border: none; font-size: 18px; cursor: pointer;
-}
-@keyframes bounceArrow {
-  0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
-  40% {transform: translateY(5px);}
-  60% {transform: translateY(3px);}
+  color: #90a4ae; background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px;
 }
 
 /* --- STICKY WRAPPER --- */
@@ -377,11 +382,9 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
     <span class="material-icons-round">close</span>
   </button>
   <div class="ios-p-text">
-    點擊下方 <span class="material-icons-round icon">ios_share</span> 分享按鈕<br>
+    點擊工具列上的 <span class="material-icons-round icon-anim">ios_share</span> 分享按鈕<br>
     並選擇 <b>「加入主畫面」</b>
-  </div>
-  <div class="ios-arrow">
-    <span class="material-icons-round">arrow_downward</span>
+    <div class="ios-sub-text">以獲得最佳 Web App 操作體驗</div>
   </div>
 </div>
 
@@ -534,35 +537,34 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 </div>
 
 <script>
-// --- SPLASH & iOS PROMPT LOGIC ---
-// [SEQUENCE] 1.Load -> 2.Wait 2s -> 3.Fade Splash -> 4.Wait 0.6s -> 5.Check iOS
+// --- SPLASH & iOS PROMPT LOGIC (V3.5) ---
 window.addEventListener('load', () => {
+  // 1. Splash Out (2.3s)
   setTimeout(() => {
-    // 1. Fade out Splash
     const splash = document.getElementById('splash-screen');
     if(splash) {
       splash.classList.add('hidden');
       setTimeout(() => { splash.style.display = 'none'; }, 600);
     }
     
-    // 2. iOS Check (Wait for splash to be GONE)
+    // 2. iOS Prompt In (Wait until Splash is mostly gone)
     setTimeout(() => {
       // Enhanced iOS Detection
       const ua = window.navigator.userAgent.toLowerCase();
       const isIos = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isInStandalone = window.navigator.standalone === true;
       
-      // ONLY show if iOS AND NOT already installed
       if (isIos && !isInStandalone) {
         const prompt = document.getElementById('ios-prompt');
-        // Add class to trigger CSS transform
+        // Make it flexible first (display: flex)
         prompt.classList.add('visible');
-        // Small delay to allow 'display: flex' to apply before animating opacity/transform
+        
+        // Then animate opacity/transform in next frame
         requestAnimationFrame(() => {
           prompt.classList.add('animate-in');
         });
       }
-    }, 800); // 800ms > 600ms transition time
+    }, 800); // 800ms delay after splash fade starts
   }, 2300);
 });
 
@@ -642,7 +644,7 @@ const SECTIONS = {
 };
 
 let PITCH_MAP = new Map(); 
-let PITCH_COUNTER = new Map(); // Track count for sequential mapping
+let PITCH_COUNTER = new Map(); 
 let PRODUCT_MAP = new Map();
 let PROMO_LIST = [];
 let PROMO_MAP = new Map();
@@ -829,12 +831,9 @@ async function init() {
       let pitchData = null;
       if (PITCH_MAP.has(code)) {
         const list = PITCH_MAP.get(code);
-        
-        // Initialize counter if not exists
         if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
         const currentIndex = PITCH_COUNTER.get(code);
         
-        // Get data if index exists
         if (currentIndex < list.length) {
           pitchData = list[currentIndex];
           PITCH_COUNTER.set(code, currentIndex + 1); // Increment count
