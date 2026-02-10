@@ -700,13 +700,20 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
+    // Parse PITCH Sheet first to get override names and hidden flags
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = (row['product_code'] || "").trim();
+      
+      const pitchName = row['product_name'] || ""; // [NEW] Get product_name from Column B
+      const isHidden = String(row['is_hidden_pp'] || "").trim().toLowerCase() === 'true'; // [NEW] Get hidden flag from Pitch sheet
+
       if(code) PITCH_MAP.set(code, {
         title: row['pitch_title'] || "", 
         content: row['pitch_content'] || "", 
         tags: row['tags'] || "",
-        isNew: String(row['is_new'] || "").trim().toUpperCase() === 'TRUE' 
+        isNew: String(row['is_new'] || "").trim().toUpperCase() === 'TRUE',
+        name: pitchName, // Store override name
+        isHidden: isHidden // Store hidden flag
       });
     });
 
@@ -717,24 +724,36 @@ async function init() {
       };
       
       const code = String(pick("product_code")||"").trim();
-      let name = String(pick("product_name")||"").trim();
+      let originalName = String(pick("product_name")||"").trim(); // Original name from master sheet
       
-      const isHidden = String(pick("is_hidden_pp")||"").trim().toLowerCase().includes('true');
       const isGift = String(pick("is_gift")||"").toLowerCase().includes('true') || String(pick("is_gift")||"").includes('是');
       
-      if(!code || !name || isGift || isHidden) return;
+      // Get data from Pitch Map
+      const pitchData = PITCH_MAP.get(code);
 
-      if (name.includes("洗卸潔顏露3入組") || name.includes("甘益守禮盒")) return; 
+      // [CHECK 1] Hidden Logic (Priority: Pitch Sheet)
+      if (pitchData && pitchData.isHidden) return; // Skip if hidden in pitch sheet
+      
+      // [CHECK 2] Basic Integrity
+      if(!code || !originalName || isGift) return;
+
+      if (originalName.includes("洗卸潔顏露3入組") || originalName.includes("甘益守禮盒")) return; 
       const hiddenSets = ["Set-01", "Set-02", "Set-03"];
       if (hiddenSets.some(s => code.includes(s))) return;
 
-      name = name.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
+      // [CHECK 3] Name Logic (Priority: Pitch Sheet > Master Sheet)
+      let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
+
+      // Clean up common noise in names if using original
+      if (!pitchData || !pitchData.name) {
+          finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
+      }
 
       const p = {
-        id: `p-${idx}`, code: code, name: name, category: pick("category").trim(),
+        id: `p-${idx}`, code: code, name: finalName, category: pick("category").trim(),
         price: Number((pick("list_price")||"0").replace(/,/g,'')),
         spec: pick("spec"), photo: pick("photos url"),
-        pitch: PITCH_MAP.get(code) || null
+        pitch: pitchData || null
       };
 
       PRODUCT_MAP.set(code, p);
