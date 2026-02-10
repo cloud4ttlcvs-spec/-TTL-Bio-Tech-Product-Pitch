@@ -550,7 +550,8 @@ const SECTIONS = {
   other: { id: 'sec-other', title: "其他精選", icon: "category", items: [] }
 };
 
-let PITCH_MAP = new Map(); // Will store Arrays now: code -> [data1, data2...]
+let PITCH_MAP = new Map(); 
+let PITCH_COUNTER = new Map(); // [NEW] Track how many times a code has been accessed
 let PRODUCT_MAP = new Map();
 let PROMO_LIST = [];
 let PROMO_MAP = new Map();
@@ -705,14 +706,14 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // Parse PITCH Sheet -> Store as ARRAY to support duplicates
+    // Parse PITCH Sheet -> Store as ARRAY
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
       
       const pitchName = getVal(row, 'product_name').trim(); 
       const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
-      // Broad Hidden Logic: TRUE, YES, 1
-      const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1'); 
+      // Broad Hidden Logic: TRUE, YES, 1, Y
+      const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1' || rawHidden === 'Y'); 
 
       if(code) {
         if (!PITCH_MAP.has(code)) PITCH_MAP.set(code, []);
@@ -733,17 +734,23 @@ async function init() {
       
       const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
       
-      // [FIX] QUEUE LOGIC: Get matching pitch data sequentially
+      // [FIX] INDEX-BASED LOGIC (Safe Queue)
       let pitchData = null;
       if (PITCH_MAP.has(code)) {
         const list = PITCH_MAP.get(code);
-        if (list.length > 0) {
-          // Take the first one (Queue), assuming row order matches
-          pitchData = list.shift(); 
+        
+        // Initialize counter if not exists
+        if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
+        const currentIndex = PITCH_COUNTER.get(code);
+        
+        // Get data if index exists
+        if (currentIndex < list.length) {
+          pitchData = list[currentIndex];
+          PITCH_COUNTER.set(code, currentIndex + 1); // Increment for next match
         }
       }
 
-      // [CHECK 1] Hidden Logic (Priority: Pitch Sheet)
+      // [CHECK 1] Hidden Logic
       if (pitchData && pitchData.isHidden) return; 
       
       // [CHECK 2] Basic Integrity
@@ -753,7 +760,7 @@ async function init() {
       const hiddenSets = ["Set-01", "Set-02", "Set-03"];
       if (hiddenSets.some(s => code.includes(s))) return;
 
-      // [CHECK 3] Name Logic (Priority: Pitch Sheet > Master Sheet)
+      // [CHECK 3] Name Logic
       let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
 
       if (!pitchData || !pitchData.name) {
