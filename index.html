@@ -550,7 +550,7 @@ const SECTIONS = {
   other: { id: 'sec-other', title: "其他精選", icon: "category", items: [] }
 };
 
-let PITCH_MAP = new Map();
+let PITCH_MAP = new Map(); // Will store Arrays now: code -> [data1, data2...]
 let PRODUCT_MAP = new Map();
 let PROMO_LIST = [];
 let PROMO_MAP = new Map();
@@ -705,35 +705,43 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // Parse PITCH Sheet first
+    // Parse PITCH Sheet -> Store as ARRAY to support duplicates
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      // [FIX] Force Upper Case for Code Matching
       const code = getVal(row, 'product_code').trim().toUpperCase();
       
       const pitchName = getVal(row, 'product_name').trim(); 
       const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
-      // [FIX] Broad Hidden Logic: TRUE, YES, 1
+      // Broad Hidden Logic: TRUE, YES, 1
       const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1'); 
 
-      if(code) PITCH_MAP.set(code, {
-        title: getVal(row, 'pitch_title').trim(), 
-        content: getVal(row, 'pitch_content').trim(), 
-        tags: getVal(row, 'tags').trim(),
-        isNew: getVal(row, 'is_new').trim().toUpperCase() === 'TRUE',
-        name: pitchName, 
-        isHidden: isHidden 
-      });
+      if(code) {
+        if (!PITCH_MAP.has(code)) PITCH_MAP.set(code, []);
+        PITCH_MAP.get(code).push({
+          title: getVal(row, 'pitch_title').trim(), 
+          content: getVal(row, 'pitch_content').trim(), 
+          tags: getVal(row, 'tags').trim(),
+          isNew: getVal(row, 'is_new').trim().toUpperCase() === 'TRUE',
+          name: pitchName, 
+          isHidden: isHidden 
+        });
+      }
     });
 
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
-      // [FIX] Force Upper Case for Code Matching
       const code = getVal(row, 'product_code').trim().toUpperCase();
       let originalName = getVal(row, 'product_name').trim();
       
       const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
       
-      // Get data from Pitch Map
-      const pitchData = PITCH_MAP.get(code);
+      // [FIX] QUEUE LOGIC: Get matching pitch data sequentially
+      let pitchData = null;
+      if (PITCH_MAP.has(code)) {
+        const list = PITCH_MAP.get(code);
+        if (list.length > 0) {
+          // Take the first one (Queue), assuming row order matches
+          pitchData = list.shift(); 
+        }
+      }
 
       // [CHECK 1] Hidden Logic (Priority: Pitch Sheet)
       if (pitchData && pitchData.isHidden) return; 
