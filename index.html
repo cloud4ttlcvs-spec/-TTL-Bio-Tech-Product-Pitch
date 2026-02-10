@@ -691,6 +691,7 @@ function addPromoToProduct(pCode, promoObj) {
 
 // [FIX] Robust Helper for Case-Insensitive Key Access
 const getVal = (row, targetKey) => {
+  if (!row) return "";
   const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === targetKey.trim().toLowerCase());
   return foundKey ? row[foundKey] : "";
 };
@@ -706,10 +707,13 @@ async function init() {
 
     // Parse PITCH Sheet first
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      const code = getVal(row, 'product_code').trim();
+      // [FIX] Force Upper Case for Code Matching
+      const code = getVal(row, 'product_code').trim().toUpperCase();
       
       const pitchName = getVal(row, 'product_name').trim(); 
-      const isHidden = getVal(row, 'is_hidden_pp').trim().toLowerCase() === 'true'; 
+      const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
+      // [FIX] Broad Hidden Logic: TRUE, YES, 1
+      const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1'); 
 
       if(code) PITCH_MAP.set(code, {
         title: getVal(row, 'pitch_title').trim(), 
@@ -722,7 +726,8 @@ async function init() {
     });
 
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
-      const code = getVal(row, 'product_code').trim();
+      // [FIX] Force Upper Case for Code Matching
+      const code = getVal(row, 'product_code').trim().toUpperCase();
       let originalName = getVal(row, 'product_name').trim();
       
       const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
