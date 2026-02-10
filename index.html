@@ -31,7 +31,6 @@
   --promo-color: #ff9800;
   --new-tag-color: #ff5252;
   
-  /* Standard Sizes */
   --sz-p-img: 65px;
   --sz-p-title: 14px;
   --sz-p-price: 16px;
@@ -39,15 +38,14 @@
   --sz-rank-img: 90px;
 }
 
-/* --- LARGE MODE (Senior Friendly) --- */
 body.large-mode {
-  --sz-p-img: 100px;      /* Image +50% */
-  --sz-p-title: 18px;     /* Title +30% */
-  --sz-p-price: 20px;     /* Price Larger */
-  --sz-p-desc: 16px;      /* Content Readable */
+  --sz-p-img: 100px;
+  --sz-p-title: 18px;
+  --sz-p-price: 20px;
+  --sz-p-desc: 16px;
   --sz-rank-img: 110px;
-  --text-main: #000000;   /* High Contrast */
-  --text-sub: #37474f;    /* Darker Gray */
+  --text-main: #000000;
+  --text-sub: #37474f;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -691,6 +689,12 @@ function addPromoToProduct(pCode, promoObj) {
   }
 }
 
+// [FIX] Robust Helper for Case-Insensitive Key Access
+const getVal = (row, targetKey) => {
+  const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === targetKey.trim().toLowerCase());
+  return foundKey ? row[foundKey] : "";
+};
+
 async function init() {
   try {
     const [resProd, resPitch, resRank, resPromo] = await Promise.all([
@@ -700,39 +704,34 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // Parse PITCH Sheet first to get override names and hidden flags
+    // Parse PITCH Sheet first
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      const code = (row['product_code'] || "").trim();
+      const code = getVal(row, 'product_code').trim();
       
-      const pitchName = row['product_name'] || ""; // [NEW] Get product_name from Column B
-      const isHidden = String(row['is_hidden_pp'] || "").trim().toLowerCase() === 'true'; // [NEW] Get hidden flag from Pitch sheet
+      const pitchName = getVal(row, 'product_name').trim(); 
+      const isHidden = getVal(row, 'is_hidden_pp').trim().toLowerCase() === 'true'; 
 
       if(code) PITCH_MAP.set(code, {
-        title: row['pitch_title'] || "", 
-        content: row['pitch_content'] || "", 
-        tags: row['tags'] || "",
-        isNew: String(row['is_new'] || "").trim().toUpperCase() === 'TRUE',
-        name: pitchName, // Store override name
-        isHidden: isHidden // Store hidden flag
+        title: getVal(row, 'pitch_title').trim(), 
+        content: getVal(row, 'pitch_content').trim(), 
+        tags: getVal(row, 'tags').trim(),
+        isNew: getVal(row, 'is_new').trim().toUpperCase() === 'TRUE',
+        name: pitchName, 
+        isHidden: isHidden 
       });
     });
 
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
-      const pick = (k) => {
-        const key = Object.keys(row).find(x => x.trim().toLowerCase() === k.trim().toLowerCase());
-        return key ? row[key] : "";
-      };
+      const code = getVal(row, 'product_code').trim();
+      let originalName = getVal(row, 'product_name').trim();
       
-      const code = String(pick("product_code")||"").trim();
-      let originalName = String(pick("product_name")||"").trim(); // Original name from master sheet
-      
-      const isGift = String(pick("is_gift")||"").toLowerCase().includes('true') || String(pick("is_gift")||"").includes('是');
+      const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
       
       // Get data from Pitch Map
       const pitchData = PITCH_MAP.get(code);
 
       // [CHECK 1] Hidden Logic (Priority: Pitch Sheet)
-      if (pitchData && pitchData.isHidden) return; // Skip if hidden in pitch sheet
+      if (pitchData && pitchData.isHidden) return; 
       
       // [CHECK 2] Basic Integrity
       if(!code || !originalName || isGift) return;
@@ -744,15 +743,19 @@ async function init() {
       // [CHECK 3] Name Logic (Priority: Pitch Sheet > Master Sheet)
       let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
 
-      // Clean up common noise in names if using original
       if (!pitchData || !pitchData.name) {
           finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
       }
 
+      const category = getVal(row, 'category').trim();
+      const listPrice = getVal(row, 'list_price') || "0";
+      const spec = getVal(row, 'spec');
+      const photo = getVal(row, 'photos url');
+
       const p = {
-        id: `p-${idx}`, code: code, name: finalName, category: pick("category").trim(),
-        price: Number((pick("list_price")||"0").replace(/,/g,'')),
-        spec: pick("spec"), photo: pick("photos url"),
+        id: `p-${idx}`, code: code, name: finalName, category: category,
+        price: Number(listPrice.replace(/,/g,'')),
+        spec: spec, photo: photo,
         pitch: pitchData || null
       };
 
@@ -764,18 +767,18 @@ async function init() {
 
     if (resPromo) {
     Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      const id = (row['promo_id']||"").trim();
+      const id = getVal(row, 'promo_id').trim();
       if(!id) return;
       
       const promo = {
         id: id,
-        title: row['title'] || "未命名活動",
-        content: row['content'] || "",
-        img: row['img_url'] || "",
-        start: row['start_date'],
-        end: row['end_date'],
-        color: row['bg_color'] || "#fff",
-        relatedRaw: row['related_codes'] || "" 
+        title: getVal(row, 'title') || "未命名活動",
+        content: getVal(row, 'content') || "",
+        img: getVal(row, 'img_url') || "",
+        start: getVal(row, 'start_date'),
+        end: getVal(row, 'end_date'),
+        color: getVal(row, 'bg_color') || "#fff",
+        relatedRaw: getVal(row, 'related_codes') || "" 
       };
       
       PROMO_LIST.push(promo);
