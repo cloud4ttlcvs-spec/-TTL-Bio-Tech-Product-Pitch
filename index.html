@@ -86,16 +86,21 @@ body {
 
 /* --- iOS INSTALL PROMPT --- */
 #ios-prompt {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(150%);
+  position: fixed; bottom: 30px; left: 50%; 
+  /* 預設藏在畫面下方 */
+  transform: translateX(-50%) translateY(150%);
   width: 90%; max-width: 360px;
   background: rgba(38, 50, 56, 0.95); backdrop-filter: blur(10px);
   color: #fff; padding: 15px 20px; border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.3);
   z-index: 100000;
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-#ios-prompt.show { transform: translateX(-50%) translateY(0); }
+#ios-prompt.show { 
+  /* 顯示時滑入畫面 */
+  transform: translateX(-50%) translateY(0); 
+}
 .ios-p-text { font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
 .ios-p-text .icon { vertical-align: middle; font-size: 18px; color: #4fc3f7; margin: 0 4px; }
 .ios-arrow {
@@ -355,7 +360,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   <div class="splash-brand">台酒生技 TTL BIO-TECH</div>
 </div>
 
-<div id="ios-prompt" class="hidden">
+<div id="ios-prompt">
   <button class="ios-close" onclick="closeIosPrompt()">
     <span class="material-icons-round">close</span>
   </button>
@@ -517,7 +522,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 </div>
 
 <script>
-// --- SPLASH & iOS PROMPT LOGIC ---
+// --- SPLASH LOGIC (2.3s Delay) ---
 window.addEventListener('load', () => {
   setTimeout(() => {
     const splash = document.getElementById('splash-screen');
@@ -526,8 +531,9 @@ window.addEventListener('load', () => {
       setTimeout(() => { splash.style.display = 'none'; }, 600);
     }
     
-    // Check iOS Prompt
-    const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    // [FIX] ROBUST iOS DETECTION (V3.3)
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isIos = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const isInStandalone = window.navigator.standalone === true;
     
     if (isIos && !isInStandalone) {
@@ -765,9 +771,10 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // Parse PITCH Sheet -> Store as ARRAY
+    // Parse PITCH Sheet -> Store as ARRAY to support duplicates
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
+      
       const pitchName = getVal(row, 'product_name').trim(); 
       const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
       // Broad Hidden Logic: TRUE, YES, 1, Y
@@ -789,15 +796,19 @@ async function init() {
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
       let originalName = getVal(row, 'product_name').trim();
+      
       const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
       
       // [FIX] INDEX-BASED LOGIC (Safe Queue)
       let pitchData = null;
       if (PITCH_MAP.has(code)) {
         const list = PITCH_MAP.get(code);
+        
+        // Initialize counter if not exists
         if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
         const currentIndex = PITCH_COUNTER.get(code);
         
+        // Get data if index exists
         if (currentIndex < list.length) {
           pitchData = list[currentIndex];
           PITCH_COUNTER.set(code, currentIndex + 1); // Increment count
