@@ -493,11 +493,11 @@ const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBP
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
 const SHEET_PROMO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEfLugUcwQdHTTu0NZcy2QHyMPvMaPpfU6g_p0MTrw3muXIGn3SPkISSPnbW9ou1GlHzRc6/pub?gid=74407584&single=true&output=csv&t=" + TS;
 
-// --- CSV FETCH ---
+// --- CSV FETCH (Double Cache-Busting) ---
 const PROXY_PROVIDERS = [
-  { name: "direct", build: (u) => u },
-  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(u) },
-  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) }
+  { name: "direct", build: (u) => u + "&_bust=" + Date.now() }, // Force new request
+  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(u + "&_bust=" + Date.now()) },
+  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u + "&_bust=" + Date.now()) }
 ];
 
 function looksLikeHtml(t) {
@@ -516,7 +516,11 @@ async function fetchTextWithTimeout(url, timeoutMs = 15000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+    const res = await fetch(url, { 
+      signal: ctrl.signal, 
+      cache: "no-store", // Browser: Don't cache
+      headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } // Proxy: Don't cache
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     return await res.text();
   } finally {
@@ -551,7 +555,7 @@ const SECTIONS = {
 };
 
 let PITCH_MAP = new Map(); 
-let PITCH_COUNTER = new Map(); // [NEW] Track how many times a code has been accessed
+let PITCH_COUNTER = new Map(); // [NEW] Track count for sequential mapping
 let PRODUCT_MAP = new Map();
 let PROMO_LIST = [];
 let PROMO_MAP = new Map();
@@ -706,7 +710,7 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // Parse PITCH Sheet -> Store as ARRAY
+    // Parse PITCH Sheet -> Store as ARRAY to support duplicates
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
       
