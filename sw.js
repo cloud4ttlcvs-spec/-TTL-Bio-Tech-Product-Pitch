@@ -1,5 +1,5 @@
 /* sw.js - 強制更新版 */
-const CACHE_NAME = 'ttl-pwa-v32'; // 升級版本號
+const CACHE_NAME = 'ttl-pwa-v33'; // 升級版本號
 const urlsToCache = [
   './',
   './index.html',
@@ -54,6 +54,7 @@ self.addEventListener('message', (event) => {
   }
 
 });
+
 
 
 
