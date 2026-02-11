@@ -150,7 +150,7 @@ header {
 h1 { margin: 0; font-size: 20px; color: var(--primary); font-weight: 900; line-height: 1.2; }
 .subtitle { font-size: 11px; color: var(--text-sub); display: block; text-align: center; }
 
-/* V4.8: PRINT BUTTON UPDATE */
+/* PRINT BUTTON */
 .btn-pdf {
   position: absolute; right: 0; top: 50%; transform: translateY(-50%);
   background: var(--primary-light); color: var(--primary);
@@ -608,7 +608,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   max-width: 800px; margin: 0 auto; padding: 20px 15px;
 }
 
-/* V4.8 PRINT STYLES */
+/* V4.9 UPDATED PRINT STYLES */
 @media print {
   /* Hide everything by default */
   body > * { display: none !important; }
@@ -620,21 +620,37 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
     background: #fff; color: #000; padding: 20px;
   }
   
-  /* Basic Table Styling for Print */
   .print-header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
   .print-brand { font-size: 24px; font-weight: 900; margin-bottom: 5px; }
   .print-sub { font-size: 14px; color: #555; }
   
-  .print-sec-title { font-size: 16px; font-weight: 700; margin: 20px 0 10px; border-bottom: 1px solid #999; padding-bottom: 4px; }
+  /* V4.9 Section Title with Note */
+  .print-sec-title { 
+    font-size: 16px; font-weight: 700; margin: 25px 0 10px; 
+    border-bottom: 1px solid #999; padding-bottom: 4px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  .print-note { font-size: 11px; font-weight: normal; color: #666; margin-left: 10px; }
   
   table.print-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 15px; }
-  table.print-table th, table.print-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+  table.print-table th, table.print-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
   table.print-table th { background-color: #eee; font-weight: 700; }
   
-  /* Helper for Promo */
-  .p-promo-box { border: 1px dashed #666; padding: 10px; margin-bottom: 10px; break-inside: avoid; }
-  .p-promo-t { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
-  .p-promo-d { font-size: 12px; color: #333; white-space: pre-line; }
+  /* V4.9 Helper for Promo Boxes (Categories) */
+  .p-promo-box { 
+    border: 1px solid #ddd; padding: 8px 10px; margin-bottom: 8px; 
+    break-inside: avoid; border-radius: 4px; 
+    display: flex; flex-direction: column;
+  }
+  /* Color Coding for Print */
+  .p-cat-health { border-left: 5px solid #00897b; background: #e0f2f1; } /* Green */
+  .p-cat-drinks { border-left: 5px solid #ff9800; background: #fff3e0; } /* Orange */
+  .p-cat-beauty { border-left: 5px solid #e91e63; background: #fce4ec; } /* Pink */
+  .p-cat-cleaning { border-left: 5px solid #00bcd4; background: #e0f7fa; } /* Cyan */
+  .p-cat-other { border-left: 5px solid #9e9e9e; background: #f5f5f5; } /* Grey */
+
+  .p-promo-t { font-weight: 900; font-size: 14px; margin-bottom: 4px; color: #000; }
+  .p-promo-d { font-size: 12px; color: #333; white-space: pre-line; line-height: 1.4; }
   .p-promo-time { font-size: 11px; color: #555; margin-top: 4px; font-style: italic; }
 }
 </style>
@@ -1446,7 +1462,7 @@ function renderUI(filterText = "") {
         if(p.pitch.tags) tagsHtml = `<div class="pitch-tags">` + p.pitch.tags.split(/,|，/).map(t => `<span class="tag">#${highlight(t.trim(), filterText)}</span>`).join('') + `</div>`;
         detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlight(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
         
-        const shareText = `【 ✨ 產品推薦 】\n🌿 ${p.name}\n-------------------\n💬 主打：${p.pitch.title || ''}\n📝 特色：${p.pitch.content || ''}\n💰 建議售價：$${p.price.toLocaleString()}\n${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}\n-------------------\n(台酒生技)`;
+        const shareText = `【 ✨ 產品推薦 】\n🌿 ${p.name}\n-------------------\n💬 主打：${p.pitch.title || ''}\n📝 特色：${p.pitch.content || ''}\n💰 優惠價：$${p.price.toLocaleString()}\n${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}\n-------------------\n(台酒生技)`;
         shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
       } else {
         detailContent = `<div class="no-data">尚無詳細資料</div>`;
@@ -1686,7 +1702,7 @@ function goToPromoDetail(promoId) {
   setTimeout(() => openPromoModal(promoId), 500); 
 }
 
-// --- V4.8 PRINT LOGIC ---
+// --- V4.9 PRINT LOGIC (Optimized) ---
 function printCatalog() {
   const container = document.getElementById('print-container');
   const today = new Date().toLocaleDateString('zh-TW');
@@ -1697,13 +1713,37 @@ function printCatalog() {
     </div>
   `;
 
-  // 1. Promo Section
+  // 1. Promo Section - Grouped by Category & Colored
   const activePromos = PROMO_LIST.filter(p => isPromoActive(p));
   if(activePromos.length > 0) {
-    html += `<div class="print-sec-title">🔥 本期熱門活動</div>`;
+    html += `<div class="print-sec-title">🔥 本期熱門活動 <span class="print-note">(依列印當下資訊)</span></div>`;
+    
+    // Sort logic: Health > Drinks > Beauty > Cleaning > Other
+    // We reuse classifyProduct logic based on title or content
+    const sortOrder = { 'health': 1, 'drinks': 2, 'beauty': 3, 'cleaning': 4, 'other': 5 };
+    
+    // Helper to determine promo category
+    const getPromoCat = (p) => {
+      if(p.title.includes("保健") || p.title.includes("益生菌")) return 'health';
+      if(p.title.includes("飲品") || p.title.includes("黑麥汁")) return 'drinks';
+      if(p.title.includes("美容") || p.title.includes("保養")) return 'beauty';
+      if(p.title.includes("清潔") || p.title.includes("洗")) return 'cleaning';
+      
+      // Fallback: check related products
+      const codes = p.relatedRaw.split(/[\r\n,\s]+/).filter(Boolean);
+      if(codes.length > 0) {
+        const prod = PRODUCT_MAP.get(codes[0]);
+        if(prod) return classifyProduct(prod.name, prod.category);
+      }
+      return 'other';
+    };
+
+    activePromos.sort((a,b) => sortOrder[getPromoCat(a)] - sortOrder[getPromoCat(b)]);
+
     activePromos.forEach(p => {
+      const cat = getPromoCat(p);
       html += `
-        <div class="p-promo-box">
+        <div class="p-promo-box p-cat-${cat}">
           <div class="p-promo-t">★ ${p.title}</div>
           <div class="p-promo-d">${p.content}</div>
           <div class="p-promo-time">期間：${p.start} ~ ${p.end}</div>
@@ -1712,10 +1752,10 @@ function printCatalog() {
     });
   }
 
-  // 2. Product Table
-  html += `<div class="print-sec-title">📦 全產品價格表</div>`;
+  // 2. Product Table - With Promo Content
+  html += `<div class="print-sec-title">📦 全產品價格表 <span class="print-note">(依列印當下資訊)</span></div>`;
   html += `<table class="print-table">
-    <thead><tr><th style="width:15%">代號</th><th style="width:40%">品名</th><th style="width:25%">規格</th><th style="width:20%">建議售價</th></tr></thead>
+    <thead><tr><th style="width:15%">代號</th><th style="width:35%">品名</th><th style="width:30%">產品促銷活動內容</th><th style="width:20%">建議售價</th></tr></thead>
     <tbody>`;
   
   const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
@@ -1724,11 +1764,23 @@ function printCatalog() {
     if(sec.items.length > 0) {
       html += `<tr><td colspan="4" style="background:#f0f0f0;font-weight:bold;text-align:center">${sec.title}</td></tr>`;
       sec.items.forEach(p => {
+        let promoText = "";
+        let rowStyle = "";
+        
+        // Find active promos for this product
+        if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
+          const promos = PRODUCT_TO_PROMO_MAP.get(p.code).filter(pr => isPromoActive(pr));
+          if (promos.length > 0) {
+            promoText = promos.map(pr => `• ${pr.content}`).join('<br>');
+            rowStyle = "font-weight:700; color:#d81b60;"; // Highlight row
+          }
+        }
+
         html += `
           <tr>
             <td>${p.code}</td>
             <td>${p.name}</td>
-            <td>${p.spec || ''}</td>
+            <td style="${rowStyle}">${promoText}</td>
             <td style="text-align:right">$${p.price.toLocaleString()}</td>
           </tr>
         `;
