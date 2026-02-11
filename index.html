@@ -317,7 +317,7 @@ body.large-mode .promo-t { font-size: 18px; }
 .promo-d { font-size: 11px; color: #78909c; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 body.large-mode .promo-d { font-size: 14px; color: #455a64; -webkit-line-clamp: 4; }
 
-/* CHANNEL ICONS ROW (UPDATED V4.1) */
+/* CHANNEL ICONS ROW */
 .promo-meta {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 8px; border-top: 1px solid #f5f5f5; padding-top: 6px;
@@ -334,11 +334,11 @@ body.large-mode .promo-date { font-size: 13px; }
 }
 .c-icon:active { transform: scale(0.9); }
 
-/* V4.1 REFINED ICONS & COLORS */
-.c-icon.showroom { background: #795548; } /* Brown - Storefront */
-.c-icon.mart { background: #00bcd4; } /* Cyan - Shopping Bag */
-.c-icon.eshop { background: #e91e63; } /* Pink - Shopping Cart */
-.c-icon.office { background: #607d8b; } /* Blue Grey - Business */
+/* V4.1 ICONS & COLORS */
+.c-icon.showroom { background: #795548; } 
+.c-icon.mart { background: #00bcd4; } 
+.c-icon.eshop { background: #e91e63; } 
+.c-icon.office { background: #607d8b; } 
 body.large-mode .c-icon { width: 28px; height: 28px; font-size: 16px; }
 
 .promo-card.expired {
@@ -398,7 +398,7 @@ body.large-mode .promo-sticker { font-size: 12px; padding: 4px 8px; }
   padding: 20px; overflow-y: auto; background: #fff; flex: 1;
 }
 
-/* V4.1 NEW MODAL HEADER LAYOUT */
+/* MODAL HEADER LAYOUT */
 .pm-header-group {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 10px; margin-bottom: 12px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;
@@ -535,13 +535,19 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   display: none; /* Show only in promo view */
 }
 
-/* --- TOAST (Z-INDEX UPDATED) --- */
+/* --- TOAST (V4.3 - HUGE TEXT & Z-INDEX FIX) --- */
 #toast {
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
-  background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border-radius: 30px;
-  font-size: 13px; font-weight: 700; z-index: 11000; /* V4.2 Fix */ 
+  background: rgba(0,0,0,0.9); color: #fff; 
+  padding: 15px 30px; /* Bigger padding */
+  border-radius: 35px;
+  font-size: 22px; /* Bigger Font (V4.3) */
+  font-weight: 700; 
+  z-index: 11000; /* Ensure it's on top of Modal (10000) */
   opacity: 0; transition: 0.3s;
-  pointer-events: none; display: flex; align-items: center; gap: 6px;
+  pointer-events: none; display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+  white-space: nowrap;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -573,6 +579,12 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   animation: fadeIn 0.5s;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* PROMO CONTAINER HIDDEN BY DEFAULT (V4.3 FIX) */
+#promo-container {
+  display: none;
+  max-width: 800px; margin: 0 auto; padding: 20px 15px;
+}
 </style>
 </head>
 <body>
@@ -639,7 +651,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   </div>
   </main>
 
-<div id="promo-container">
+<div id="promo-container" style="display:none;">
   <div class="promo-header">
     <div class="promo-title-main">
       <span class="material-icons-round">campaign</span> 最新活動
@@ -1154,6 +1166,10 @@ async function init() {
     // 6. Render
     renderPromotions();
     renderUI();
+    
+    // [V4.3 FIX] Force hiding promo container after everything is rendered
+    showMainView(false);
+
     document.getElementById("loader").style.opacity = 0;
     setTimeout(() => document.getElementById("loader").remove(), 500);
 
