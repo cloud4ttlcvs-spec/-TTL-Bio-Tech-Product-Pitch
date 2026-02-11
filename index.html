@@ -317,7 +317,7 @@ body.large-mode .promo-t { font-size: 18px; }
 .promo-d { font-size: 11px; color: #78909c; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 body.large-mode .promo-d { font-size: 14px; color: #455a64; -webkit-line-clamp: 4; }
 
-/* CHANNEL ICONS ROW (NEW V3.7) */
+/* CHANNEL ICONS ROW */
 .promo-meta {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 8px; border-top: 1px solid #f5f5f5; padding-top: 6px;
@@ -327,15 +327,19 @@ body.large-mode .promo-date { font-size: 13px; }
 
 .channel-icons { display: flex; gap: 4px; }
 .c-icon {
-  font-size: 14px; width: 20px; height: 20px;
+  font-size: 14px; width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; color: #fff;
+  border-radius: 50%; color: #fff; cursor: pointer;
+  transition: transform 0.2s;
 }
+.c-icon:active { transform: scale(0.9); }
+
+/* V4.0 NEW ICONS & COLORS */
 .c-icon.showroom { background: #795548; } /* Brown */
 .c-icon.mart { background: #00bcd4; } /* Cyan */
 .c-icon.eshop { background: #e91e63; } /* Pink */
 .c-icon.office { background: #607d8b; } /* Blue Grey */
-body.large-mode .c-icon { width: 24px; height: 24px; font-size: 16px; }
+body.large-mode .c-icon { width: 28px; height: 28px; font-size: 16px; }
 
 .promo-card.expired {
   background: #455a64 !important; /* Dark Gray */
@@ -384,10 +388,18 @@ body.large-mode .promo-sticker { font-size: 12px; padding: 4px 8px; }
   background: #000;
   width: 100%; min-height: 200px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
+  overflow: hidden; position: relative;
 }
 .pm-img {
   width: 100%; height: auto; max-height: 60vh; object-fit: contain;
+}
+
+/* V4.0 NEW: Modal Floating Icons */
+.pm-channel-overlay {
+  position: absolute; bottom: 10px; right: 10px;
+  display: flex; gap: 6px; z-index: 5;
+  background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 20px;
+  backdrop-filter: blur(2px);
 }
 
 .pm-info {
@@ -548,7 +560,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 @keyframes flashHighlight { 50% { border-color: #ffd700; box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.3); } }
 .flash-highlight { animation: flashHighlight 1.2s ease-in-out; }
 
-/* ERROR BUTTON (NEW V3.8) */
+/* ERROR BUTTON */
 .loader-error-btn {
   display: none;
   margin-top: 15px; padding: 10px 20px; background: #d32f2f; color: white;
@@ -659,7 +671,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
     </button>
     <div class="pm-img-wrap">
       <img id="pm-img" class="pm-img" src="">
-    </div>
+      </div>
     <div class="pm-info">
       <div class="pm-title" id="pm-title"></div>
       <div class="pm-date">
@@ -1200,6 +1212,25 @@ function filterPromos(type) {
   renderPromotions();
 }
 
+// Helper to generate icon HTML
+function getChannelIconsHtml(promo) {
+  let iconsHtml = "";
+  if(promo.ch) {
+    if(promo.ch.show) iconsHtml += `<div class="c-icon showroom" onclick="showChannelToast('展售中心');event.stopPropagation()"><span class="material-icons-round">store</span></div>`;
+    if(promo.ch.mart) iconsHtml += `<div class="c-icon mart" onclick="showChannelToast('便利店');event.stopPropagation()"><span class="material-icons-round">shopping_bag</span></div>`;
+    if(promo.ch.eshop) iconsHtml += `<div class="c-icon eshop" onclick="showChannelToast('台酒購物網');event.stopPropagation()"><span class="material-icons-round">shopping_cart</span></div>`;
+    if(promo.ch.office) iconsHtml += `<div class="c-icon office" onclick="showChannelToast('營業所');event.stopPropagation()"><span class="material-icons-round">business</span></div>`;
+  }
+  return iconsHtml;
+}
+
+function showChannelToast(name) {
+  const toast = document.getElementById("toast");
+  toast.innerHTML = `<span class="material-icons-round">info</span> 此活動適用於：${name}`;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2500);
+}
+
 function renderPromotions() {
   const grid = document.getElementById("promo-grid");
   grid.innerHTML = "";
@@ -1240,14 +1271,8 @@ function renderPromotions() {
     const imgHtml = promo.img ? `<img src="${promo.img}" class="promo-img">` : `<span class="material-icons-round" style="color:#ccc">image</span>`;
     card.onclick = () => openPromoModal(promo.id);
 
-    // [NEW] Channel Icons HTML
-    let iconsHtml = "";
-    if(promo.ch) {
-      if(promo.ch.show) iconsHtml += `<div class="c-icon showroom"><span class="material-icons-round">storefront</span></div>`;
-      if(promo.ch.mart) iconsHtml += `<div class="c-icon mart"><span class="material-icons-round">local_convenience_store</span></div>`;
-      if(promo.ch.eshop) iconsHtml += `<div class="c-icon eshop"><span class="material-icons-round">shopping_cart</span></div>`;
-      if(promo.ch.office) iconsHtml += `<div class="c-icon office"><span class="material-icons-round">business</span></div>`;
-    }
+    // [NEW] Use Helper
+    let iconsHtml = getChannelIconsHtml(promo);
 
     card.innerHTML = `
       <div class="promo-img-box">${imgHtml}</div>
@@ -1406,7 +1431,9 @@ function uiCloseLightbox() {
 function copyShare(btn, text) {
   event.stopPropagation();
   navigator.clipboard.writeText(text).then(() => {
+    // Basic toast reuse for share
     const toast = document.getElementById("toast");
+    toast.innerHTML = `<span class="material-icons-round">check_circle</span> 已複製銷售文案`;
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 2000);
   });
@@ -1520,7 +1547,7 @@ function showMainView(pushHistory = true) {
   }
 }
 
-// --- PROMO MODAL LOGIC ---
+// --- PROMO MODAL LOGIC (UPDATED V4.0) ---
 function openPromoModal(promoId) {
   event.stopPropagation();
   const promo = PROMO_MAP.get(promoId);
@@ -1529,10 +1556,24 @@ function openPromoModal(promoId) {
   history.pushState({modal: 'promo-detail'}, document.title);
 
   // Clear image first to avoid ghosting
+  const imgWrap = document.querySelector('.pm-img-wrap');
+  // Remove old icon overlay if exists
+  const oldOverlay = document.querySelector('.pm-channel-overlay');
+  if(oldOverlay) oldOverlay.remove();
+
   const imgEl = document.getElementById('pm-img');
   imgEl.src = ""; 
-  
   imgEl.src = promo.img || "";
+
+  // Inject Icons into Modal Image
+  let iconsHtml = getChannelIconsHtml(promo);
+  if(iconsHtml) {
+    const overlay = document.createElement('div');
+    overlay.className = 'pm-channel-overlay';
+    overlay.innerHTML = iconsHtml;
+    imgWrap.appendChild(overlay);
+  }
+
   document.getElementById('pm-title').innerText = promo.title;
   document.getElementById('pm-date').innerText = promo.start + " ~ " + promo.end;
   document.getElementById('pm-desc').innerText = promo.content;
