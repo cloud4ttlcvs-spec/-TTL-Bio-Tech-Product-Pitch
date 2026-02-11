@@ -535,11 +535,12 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   display: none; /* Show only in promo view */
 }
 
-/* --- TOAST --- */
+/* --- TOAST (Z-INDEX UPDATED) --- */
 #toast {
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
   background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border-radius: 30px;
-  font-size: 13px; font-weight: 700; z-index: 3000; opacity: 0; transition: 0.3s;
+  font-size: 13px; font-weight: 700; z-index: 11000; /* V4.2 Fix */ 
+  opacity: 0; transition: 0.3s;
   pointer-events: none; display: flex; align-items: center; gap: 6px;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -1250,7 +1251,8 @@ function showChannelToast(text) {
   const toast = document.getElementById("toast");
   toast.innerHTML = `<span class="material-icons-round">info</span> 此活動適用於：${text}`;
   toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 2500);
+  // [V4.2 UPDATE] Extended time to 3300ms
+  setTimeout(() => toast.classList.remove("show"), 3300);
 }
 
 function renderPromotions() {
