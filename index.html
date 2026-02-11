@@ -25,6 +25,8 @@
   --text-sub: #546e7a;
   --card-shadow: 0 4px 15px rgba(0,0,0,0.03);
   --header-height: 120px; 
+  --highlight-color: #ffeb3b;
+  --highlight-text: #d81b60;
   --sticky-offset: 185px; 
   --promo-color: #ff9800;
   --new-tag-color: #ff5252;
@@ -82,7 +84,7 @@ body {
 @keyframes splashEntrance { to { opacity: 1; transform: scale(1); } }
 @keyframes splashFadeIn { to { opacity: 1; } }
 
-/* --- iOS INSTALL PROMPT --- */
+/* --- iOS INSTALL PROMPT (V3.5) --- */
 #ios-prompt {
   display: none; 
   position: fixed; 
@@ -960,7 +962,7 @@ function addPromoToProduct(pCode, promoObj) {
   }
 }
 
-// [FIX] Robust Helper
+// [FIX] Robust Helper for Case-Insensitive Key Access
 const getVal = (row, targetKey) => {
   if (!row) return "";
   const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === targetKey.trim().toLowerCase());
@@ -969,7 +971,6 @@ const getVal = (row, targetKey) => {
 
 async function init() {
   try {
-    // 1. Fetch CSVs
     const [resProd, resPitch, resRank, resPromo] = await Promise.all([
       fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
       fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true }),
@@ -977,11 +978,13 @@ async function init() {
       fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
     ]);
 
-    // 2. Parse Pitch
+    // Parse PITCH Sheet -> Store as ARRAY to support duplicates
     Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
+      
       const pitchName = getVal(row, 'product_name').trim(); 
       const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
+      // Broad Hidden Logic: TRUE, YES, 1, Y
       const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1' || rawHidden === 'Y'); 
 
       if(code) {
@@ -997,31 +1000,41 @@ async function init() {
       }
     });
 
-    // 3. Parse Products
     Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
       const code = getVal(row, 'product_code').trim().toUpperCase();
       let originalName = getVal(row, 'product_name').trim();
+      
       const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
       
+      // [FIX] INDEX-BASED LOGIC (Safe Queue)
       let pitchData = null;
       if (PITCH_MAP.has(code)) {
         const list = PITCH_MAP.get(code);
+        
+        // Initialize counter if not exists
         if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
         const currentIndex = PITCH_COUNTER.get(code);
+        
+        // Get data if index exists
         if (currentIndex < list.length) {
           pitchData = list[currentIndex];
-          PITCH_COUNTER.set(code, currentIndex + 1);
+          PITCH_COUNTER.set(code, currentIndex + 1); // Increment count
         }
       }
 
+      // [CHECK 1] Hidden Logic
       if (pitchData && pitchData.isHidden) return; 
+      
+      // [CHECK 2] Basic Integrity
       if(!code || !originalName || isGift) return;
 
       if (originalName.includes("洗卸潔顏露3入組") || originalName.includes("甘益守禮盒")) return; 
       const hiddenSets = ["Set-01", "Set-02", "Set-03"];
       if (hiddenSets.some(s => code.includes(s))) return;
 
+      // [CHECK 3] Name Logic
       let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
+
       if (!pitchData || !pitchData.name) {
           finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
       }
@@ -1044,57 +1057,52 @@ async function init() {
       else SECTIONS.other.items.push(p);
     });
 
-    // 4. Parse Promo (NEW: Channel Icons)
     if (resPromo) {
-      Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
-        const id = getVal(row, 'promo_id').trim();
-        if(!id) return;
-        
-        // Parse channels
-        const c1 = getVal(row, 'channel_showroom').trim().toUpperCase();
-        const c2 = getVal(row, 'channel_mart').trim().toUpperCase();
-        const c3 = getVal(row, 'channel_eshop').trim().toUpperCase();
-        const c4 = getVal(row, 'channel_office').trim().toUpperCase();
-        
-        const promo = {
-          id: id,
-          title: getVal(row, 'title') || "未命名活動",
-          content: getVal(row, 'content') || "",
-          img: getVal(row, 'img_url') || "",
-          start: getVal(row, 'start_date'),
-          end: getVal(row, 'end_date'),
-          color: getVal(row, 'bg_color') || "#fff",
-          relatedRaw: getVal(row, 'related_codes') || "",
-          // Channel Flags (TRUE/YES/1)
-          ch: {
+    Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
+      const id = getVal(row, 'promo_id').trim();
+      if(!id) return;
+      
+      const c1 = getVal(row, 'channel_showroom').trim().toUpperCase();
+      const c2 = getVal(row, 'channel_mart').trim().toUpperCase();
+      const c3 = getVal(row, 'channel_eshop').trim().toUpperCase();
+      const c4 = getVal(row, 'channel_office').trim().toUpperCase();
+
+      const promo = {
+        id: id,
+        title: getVal(row, 'title') || "未命名活動",
+        content: getVal(row, 'content') || "",
+        img: getVal(row, 'img_url') || "",
+        start: getVal(row, 'start_date'),
+        end: getVal(row, 'end_date'),
+        color: getVal(row, 'bg_color') || "#fff",
+        relatedRaw: getVal(row, 'related_codes') || "",
+        ch: {
             show: (c1==='TRUE'||c1==='YES'||c1==='1'),
             mart: (c2==='TRUE'||c2==='YES'||c2==='1'),
             eshop: (c3==='TRUE'||c3==='YES'||c3==='1'),
             office: (c4==='TRUE'||c4==='YES'||c4==='1')
-          }
-        };
-        
-        PROMO_LIST.push(promo);
-        PROMO_MAP.set(id, promo);
+        }
+      };
+      
+      PROMO_LIST.push(promo);
+      PROMO_MAP.set(id, promo);
 
-        const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
-        tokens.forEach(token => {
-          if (PRODUCT_MAP.has(token)) {
-            addPromoToProduct(token, promo);
-          } else {
-            const matchedCodes = findProductsByKeyword(token);
-            if (matchedCodes.length > 0) {
-              matchedCodes.forEach(c => addPromoToProduct(c, promo));
-            }
+      const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+      
+      tokens.forEach(token => {
+        if (PRODUCT_MAP.has(token)) {
+          addPromoToProduct(token, promo);
+        } else {
+          const matchedCodes = findProductsByKeyword(token);
+          if (matchedCodes.length > 0) {
+            matchedCodes.forEach(c => addPromoToProduct(c, promo));
           }
-        });
+        }
       });
+    });
     }
 
-    // 5. Parse Rank
     if (resRank) processRankings(resRank);
-    
-    // 6. Render
     renderPromotions();
     renderUI();
     document.getElementById("loader").style.opacity = 0;
@@ -1105,7 +1113,66 @@ async function init() {
   }
 }
 
-// ... (renderPromotions Function Update below) ...
+function processRankings(csvText) {
+  let rawList = [];
+  let processedCodes = new Set();
+  Papa.parse(csvText, { header: false }).data.forEach(r => {
+    if(r.length < 6) return;
+    const code = r[0];
+    let qty = parseFloat((r[5] || "0").toString().replace(/,/g, ''));
+    if(!qty || qty <= 0) qty = parseFloat((r[4] || "0").toString().replace(/,/g, ''));
+
+    if(PRODUCT_MAP.has(code) && qty > 0 && !processedCodes.has(code)) {
+      const p = PRODUCT_MAP.get(code);
+      rawList.push({ ...p, sold: qty });
+      processedCodes.add(code);
+    }
+  });
+
+  rawList.sort((a,b) => b.sold - a.sold);
+  RANKINGS.all = rawList.slice(0, 10);
+  RANKINGS.health = rawList.filter(i => classifyProduct(i.name, i.category) === 'health').slice(0, 10);
+  RANKINGS.drinks = rawList.filter(i => classifyProduct(i.name, i.category) === 'drinks').slice(0, 10);
+  RANKINGS.beauty = rawList.filter(i => classifyProduct(i.name, i.category) === 'beauty').slice(0, 10);
+  RANKINGS.cleaning = rawList.filter(i => classifyProduct(i.name, i.category) === 'cleaning').slice(0, 10);
+
+  if(RANKINGS.all.length > 0) {
+    document.getElementById("ranking-section").style.display = "block";
+    renderRankingList("all");
+  }
+}
+
+function renderRankingList(type) {
+  const listEl = document.getElementById("rankList");
+  listEl.innerHTML = "";
+  const data = RANKINGS[type] || [];
+  data.forEach((p, idx) => {
+    const div = document.createElement("div");
+    div.className = "r-card";
+    div.dataset.rank = idx + 1;
+    div.onclick = () => jumpToProduct(p.id);
+    let img = p.photo && p.photo.length>5 ? `<img src="${p.photo}" class="r-img">` : `<div style="font-size:10px;color:#ccc">無圖</div>`;
+    div.innerHTML = `<div class="r-img-wrap"><div class="r-badge">${idx+1}</div>${img}</div><div class="r-name">${p.name}</div>`;
+    listEl.appendChild(div);
+  });
+}
+
+function switchRank(type) {
+  document.querySelectorAll(".r-tab").forEach(el => el.classList.remove("active"));
+  event.target.classList.add("active");
+  renderRankingList(type);
+}
+
+// --- PROMO RENDER & FILTER ---
+let currentPromoFilter = 'all';
+
+function filterPromos(type) {
+  currentPromoFilter = type;
+  document.querySelectorAll(".pf-tab").forEach(el => {
+    el.classList.toggle("active", el.innerText === event.target.innerText);
+  });
+  renderPromotions();
+}
 
 function renderPromotions() {
   const grid = document.getElementById("promo-grid");
@@ -1118,15 +1185,16 @@ function renderPromotions() {
     if(currentPromoFilter === 'expired' && isActive) return;
     
     if(['health', 'drinks', 'beauty', 'cleaning'].includes(currentPromoFilter)) {
-      // (Category Filter Logic...)
       const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
       let match = false;
       for(let token of tokens) {
         const typeMap = {'美容':'beauty', '保健':'health', '清潔':'cleaning', '飲品':'drinks'};
         if(typeMap[token] === currentPromoFilter) { match = true; break; }
+        
         let pCodes = [];
         if(PRODUCT_MAP.has(token)) pCodes.push(token);
         else pCodes = findProductsByKeyword(token);
+        
         for(let pc of pCodes) {
           const p = PRODUCT_MAP.get(pc);
           if(p && classifyProduct(p.name, p.category) === currentPromoFilter) {
@@ -1171,11 +1239,352 @@ function renderPromotions() {
   });
 }
 
-// ... (Rest of functions: classifyProduct, isPromoActive, etc. stay same) ...
-// (Include other helper functions from previous versions)
+function renderUI(filterText = "") {
+  const container = document.getElementById("main-container");
+  const nav = document.getElementById("topNav");
+  container.querySelectorAll('.cat-section').forEach(e => e.remove());
+  if(!filterText) nav.innerHTML = ""; 
 
-// [IMPORTANT] Ensure all previous helper functions are present!
-// processRankings, renderRankingList, switchRank, filterPromos, renderUI, handleSearch, clearSearch, openLightbox, copyShare, scrollToId, jumpToProduct, toggleAccordion, setupScrollSpy, showPromoView, showMainView, openPromoModal, closePromoModal, goToPromoDetail, installApp, updateApp, showUpdateToast...
+  document.getElementById('search-clear').style.display = filterText ? 'block' : 'none';
+
+  const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
+  const highlight = (text, term) => {
+    if(!term) return text;
+    const re = new RegExp(`(${term})`, 'gi');
+    return text.replace(re, '<mark class="highlight">$1</mark>');
+  };
+
+  order.forEach(key => {
+    const secData = SECTIONS[key];
+    if(secData.items.length === 0) return;
+
+    const filteredItems = secData.items.filter(p => {
+      if(!filterText) return true;
+      const term = filterText.toLowerCase();
+      return p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) ||
+             (p.pitch && (p.pitch.title.toLowerCase().includes(term) || p.pitch.tags.toLowerCase().includes(term)));
+    });
+
+    if(filteredItems.length === 0) return; 
+
+    if(!filterText) {
+      const pill = document.createElement("div");
+      pill.className = "nav-pill";
+      pill.innerHTML = `<span class="material-icons-round" style="font-size:14px">${secData.icon}</span> ${secData.title}`;
+      pill.onclick = () => scrollToId(secData.id);
+      nav.appendChild(pill);
+    }
+
+    const section = document.createElement("section");
+    section.className = "cat-section";
+    section.id = secData.id;
+    section.innerHTML = `<div class="cat-title">${secData.title} <span style="font-size:12px;color:#90a4ae;font-weight:normal">(${filteredItems.length})</span></div>`;
+
+    const grid = document.createElement("div");
+    grid.className = "grid-layout";
+
+    filteredItems.forEach(p => {
+      const displayName = highlight(p.name, filterText);
+      let detailContent = "", shareBtnHtml = "";
+      
+      let stickerHtml = "";
+      if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
+        const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
+        promos.forEach(pr => {
+          if(isPromoActive(pr)) {
+            stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+          }
+        });
+      }
+      
+      if (p.pitch) {
+        let tagsHtml = "";
+        if(p.pitch.tags) tagsHtml = `<div class="pitch-tags">` + p.pitch.tags.split(/,|，/).map(t => `<span class="tag">#${highlight(t.trim(), filterText)}</span>`).join('') + `</div>`;
+        detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlight(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
+        
+        const shareText = `【 ✨ 產品推薦 】\n🌿 ${p.name}\n-------------------\n💬 主打：${p.pitch.title || ''}\n📝 特色：${p.pitch.content || ''}\n💰 優惠價：$${p.price.toLocaleString()}\n${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}\n-------------------\n(台酒生技)`;
+        shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
+      } else {
+        detailContent = `<div class="no-data">尚無詳細資料</div>`;
+      }
+
+      let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
+      if(p.photo && p.photo.length > 5) {
+        imgHtml = `
+          <img src="${p.photo}" loading="lazy">
+          <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
+        `;
+      }
+      
+      let newBadgeHtml = "";
+      if(p.pitch && p.pitch.isNew) {
+        newBadgeHtml = `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`;
+      }
+
+      const card = document.createElement("div");
+      card.className = "p-card";
+      card.id = p.id; 
+      card.onclick = (e) => toggleAccordion(card);
+      
+      card.innerHTML = `
+        ${newBadgeHtml}
+        <div class="p-header">
+          <div class="p-img-box" onclick="openLightbox(event, '${p.photo}')">${imgHtml}</div>
+          <div class="p-basic-info">
+            <div class="p-code">${highlight(p.code, filterText)}</div>
+            <div class="p-name">${displayName}${stickerHtml}</div>
+            <div class="p-spec">${p.spec || ''}</div>
+            <div class="p-price-row"><div class="p-price">${p.price.toLocaleString()}</div><span class="material-icons-round p-arrow">expand_more</span></div>
+          </div>
+        </div>
+        <div class="p-detail"><div class="p-detail-inner">${detailContent}<div style="overflow:hidden">${shareBtnHtml}</div></div></div>
+      `;
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    container.appendChild(section);
+  });
+  
+  if(!filterText && nav.children.length > 0) nav.children[0].classList.add('active');
+  setupScrollSpy();
+}
+
+let searchTimeout;
+function handleSearch(val) {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    renderUI(val.trim());
+    document.getElementById("ranking-section").style.display = val ? 'none' : 'block';
+  }, 300);
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  handleSearch('');
+  document.getElementById('searchInput').focus(); // Keep focus or blur as needed
+}
+
+function openLightbox(e, src) {
+  if(!src || src.length < 5) return;
+  e.stopPropagation(); 
+  history.pushState({modal: 'lightbox'}, document.title);
+  const lb = document.getElementById("lightbox");
+  const img = document.getElementById("lb-img");
+  img.src = src;
+  lb.classList.add("open");
+}
+
+function uiCloseLightbox() { 
+  history.back();
+}
+
+function copyShare(btn, text) {
+  event.stopPropagation();
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById("toast");
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2000);
+  });
+}
+
+function scrollToId(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  const offsetPosition = el.getBoundingClientRect().top + window.pageYOffset - 185;
+  window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+}
+
+function jumpToProduct(elementId) {
+  const el = document.getElementById(elementId);
+  if(!el) return;
+  
+  document.querySelectorAll('.p-card.active').forEach(card => {
+    if(card !== el) { card.classList.remove('active'); card.querySelector('.p-detail').style.maxHeight = null; }
+  });
+  
+  if(!el.classList.contains('active')) {
+    toggleAccordion(el);
+  }
+  
+  el.classList.add("flash-highlight");
+  setTimeout(()=>el.classList.remove("flash-highlight"), 1200);
+  setTimeout(() => {
+    const offsetPosition = el.getBoundingClientRect().top + window.pageYOffset - 185;
+    window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+  }, 300);
+}
+
+function toggleAccordion(clickedCard) {
+  if(event.target.classList.contains('promo-sticker') || event.target.parentElement.classList.contains('promo-sticker')) return;
+
+  const isActive = clickedCard.classList.contains('active');
+  
+  if(isActive) {
+    history.back();
+    return;
+  }
+
+  const currentActive = document.querySelector('.p-card.active');
+  if (currentActive) {
+    currentActive.classList.remove('active');
+    currentActive.querySelector('.p-detail').style.maxHeight = null;
+    if (history.state && history.state.cardId) {
+       history.replaceState({cardId: clickedCard.id}, document.title);
+    } else {
+       history.pushState({cardId: clickedCard.id}, document.title);
+    }
+  } else {
+    history.pushState({cardId: clickedCard.id}, document.title);
+  }
+
+  clickedCard.classList.add('active');
+  const panel = clickedCard.querySelector('.p-detail');
+  panel.style.maxHeight = panel.scrollHeight + "px";
+}
+
+function setupScrollSpy() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        document.querySelectorAll(".nav-pill").forEach(pill => {
+          const isActive = pill.innerText.includes(entry.target.querySelector('.cat-title').innerText.split('(')[0].trim());
+          pill.classList.toggle("active", isActive);
+          if(isActive) pill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        });
+      }
+    });
+  }, { root: null, rootMargin: '-190px 0px -70% 0px', threshold: 0 });
+  document.querySelectorAll('.cat-section').forEach(section => { observer.observe(section); });
+}
+
+// --- PROMO VIEW LOGIC ---
+function showPromoView(targetId) {
+  if (history.state && history.state.page !== 'promo') {
+    history.pushState({page: 'promo'}, document.title);
+  }
+
+  document.getElementById("main-container").style.display = 'none';
+  document.querySelector('.sticky-header-group').style.display = 'none';
+  document.getElementById("promo-container").style.display = 'block';
+  document.querySelector('.floating-nav').style.display = 'none';
+  // Show Promo Float Nav
+  document.getElementById('promo-fab').style.display = 'block';
+  
+  window.scrollTo({top: 0});
+
+  if(targetId) {
+    const card = document.getElementById("promo-" + targetId);
+    if(card) {
+      setTimeout(() => {
+        card.scrollIntoView({behavior: "smooth", block: "center"});
+        card.classList.add("flash-promo");
+        setTimeout(() => card.classList.remove("flash-promo"), 3000);
+      }, 100);
+    }
+  }
+}
+
+function showMainView(pushHistory = true) {
+  if (pushHistory) history.back();
+  else {
+    document.getElementById("main-container").style.display = 'block';
+    document.querySelector('.sticky-header-group').style.display = 'block';
+    document.getElementById("promo-container").style.display = 'none';
+    document.querySelector('.floating-nav').style.display = 'flex';
+    document.getElementById('promo-fab').style.display = 'none';
+  }
+}
+
+// --- PROMO MODAL LOGIC ---
+function openPromoModal(promoId) {
+  event.stopPropagation();
+  const promo = PROMO_MAP.get(promoId);
+  if(!promo) return;
+
+  history.pushState({modal: 'promo-detail'}, document.title);
+
+  // Clear image first to avoid ghosting
+  const imgEl = document.getElementById('pm-img');
+  imgEl.src = ""; 
+  
+  imgEl.src = promo.img || "";
+  document.getElementById('pm-title').innerText = promo.title;
+  document.getElementById('pm-date').innerText = promo.start + " ~ " + promo.end;
+  document.getElementById('pm-desc').innerText = promo.content;
+
+  document.getElementById('promo-modal').classList.add('open');
+}
+
+function closePromoModal() {
+  history.back();
+}
+
+function goToPromoDetail(promoId) {
+  event.stopPropagation();
+  showPromoView(promoId);
+  setTimeout(() => openPromoModal(promoId), 500); 
+}
+
+// --- PWA LOGIC ---
+let deferredPrompt;
+let newWorker;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('btn-install').style.display = 'flex';
+});
+
+async function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('btn-install').style.display = 'none';
+  }
+}
+
+function updateApp() {
+  if (newWorker) {
+    newWorker.postMessage({ type: 'SKIP_WAITING' });
+  }
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      if (reg.waiting) {
+        newWorker = reg.waiting;
+        showUpdateToast();
+        return;
+      }
+      reg.addEventListener('updatefound', () => {
+        const installingWorker = reg.installing;
+        installingWorker.onstatechange = () => {
+          if (installingWorker.state === 'installed') {
+            if (navigator.serviceWorker.controller) {
+              newWorker = installingWorker;
+              showUpdateToast();
+            }
+          }
+        };
+      });
+    });
+
+    let refreshing;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  });
+}
+
+function showUpdateToast() {
+  document.getElementById('update-toast').classList.add('show');
+}
+
+init();
 </script>
 </body>
 </html>
