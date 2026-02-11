@@ -233,9 +233,18 @@ body.large-mode .cat-title { font-size: 22px; border-left-width: 8px; }
 }
 body.large-mode .new-badge { font-size: 12px; padding: 4px 10px 4px 8px; }
 .p-header { display: flex; align-items: center; padding: 10px; gap: 10px; position: relative; z-index: 2; background: #fff; }
+
+/* V4.6 Modified: cursor pointer initially */
 .p-img-box {
-  width: var(--sz-p-img); height: var(--sz-p-img); flex-shrink: 0; border-radius: 8px; background: #fcfcfc; border: 1px solid #eee; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: zoom-in;
+  width: var(--sz-p-img); height: var(--sz-p-img); flex-shrink: 0; 
+  border-radius: 8px; background: #fcfcfc; border: 1px solid #eee; 
+  display: flex; align-items: center; justify-content: center; 
+  position: relative; overflow: hidden; 
+  cursor: pointer; /* Changed from zoom-in */
 }
+/* V4.6 Modified: cursor zoom-in only when active */
+.p-card.active .p-img-box { cursor: zoom-in; }
+
 .p-img-box img { width: 90%; height: 90%; object-fit: contain; mix-blend-mode: multiply; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .p-card.active .p-img-box img { transform: scale(1.15); }
 .zoom-hint {
@@ -317,7 +326,7 @@ body.large-mode .promo-t { font-size: 18px; }
 .promo-d { font-size: 11px; color: #78909c; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 body.large-mode .promo-d { font-size: 14px; color: #455a64; -webkit-line-clamp: 4; }
 
-/* CHANNEL ICONS ROW (V4.1) */
+/* CHANNEL ICONS ROW */
 .promo-meta {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 8px; border-top: 1px solid #f5f5f5; padding-top: 6px;
@@ -768,8 +777,16 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 </div>
 
 <script>
-// --- SPLASH & iOS PROMPT LOGIC (V3.6) ---
+// --- SPLASH & iOS PROMPT LOGIC ---
 window.addEventListener('load', () => {
+  // Show Error Button after 8 seconds of loading
+  setTimeout(() => {
+    const loader = document.getElementById('loader');
+    if(loader && loader.style.opacity !== '0') {
+       document.getElementById('btn-force-reload').style.display = 'block';
+    }
+  }, 8000);
+
   setTimeout(() => {
     const splash = document.getElementById('splash-screen');
     if(splash) {
@@ -1399,7 +1416,9 @@ function renderUI(filterText = "") {
       let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
       if(p.photo && p.photo.length > 5) {
         imgHtml = `
+          <div class="p-img-box" onclick="onProductImageClick(event, '${p.photo}')">
           <img src="${p.photo}" loading="lazy">
+          </div>
           <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
         `;
       }
@@ -1417,7 +1436,7 @@ function renderUI(filterText = "") {
       card.innerHTML = `
         ${newBadgeHtml}
         <div class="p-header">
-          <div class="p-img-box" onclick="openLightbox(event, '${p.photo}')">${imgHtml}</div>
+          ${imgHtml}
           <div class="p-basic-info">
             <div class="p-code">${highlight(p.code, filterText)}</div>
             <div class="p-name">${displayName}${stickerHtml}</div>
@@ -1450,6 +1469,16 @@ function clearSearch() {
   document.getElementById('searchInput').value = '';
   handleSearch('');
   document.getElementById('searchInput').focus(); // Keep focus or blur as needed
+}
+
+function onProductImageClick(e, src) {
+  const card = e.currentTarget.closest('.p-card');
+  if (card.classList.contains('active')) {
+    e.stopPropagation();
+    openLightbox(e, src);
+  } else {
+    // Let it bubble to card onclick
+  }
 }
 
 function openLightbox(e, src) {
