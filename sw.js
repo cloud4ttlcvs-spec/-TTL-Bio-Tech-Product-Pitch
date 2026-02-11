@@ -1,5 +1,5 @@
 // sw.js - V3.6.1 圖片快取增強版
-const CACHE_NAME = 'ttl-pwa-v41'; // App 核心快取
+const CACHE_NAME = 'ttl-pwa-v42'; // App 核心快取
 const IMAGE_CACHE_NAME = 'ttl-images-v1'; // 專門存圖片的快取
 const urlsToCache = [
   './',
@@ -82,5 +82,6 @@ self.addEventListener('message', (event) => {
   }
 
 });
+
 
 
