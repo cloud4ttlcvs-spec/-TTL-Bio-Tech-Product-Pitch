@@ -282,10 +282,10 @@ body.large-mode .tag { font-size: 12px; padding: 4px 10px; }
 body.large-mode .btn-share { font-size: 14px; padding: 6px 14px; }
 .btn-share:active { transform: scale(0.95); background: #cfd8dc; }
 
-/* --- PROMO VIEW STYLES --- */
+/* --- PROMO VIEW STYLES (V5.0 Multi-Filter) --- */
 .promo-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;
+  margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee;
 }
 .promo-title-main { font-size: 20px; font-weight: 900; color: var(--promo-color); display: flex; align-items: center; gap:8px;}
 .btn-back-home {
@@ -295,19 +295,47 @@ body.large-mode .btn-share { font-size: 14px; padding: 6px 14px; }
 }
 body.large-mode .btn-back-home { font-size: 16px; padding: 8px 16px; }
 
-.promo-filters {
-  display: flex; gap: 8px; overflow-x: auto; padding: 0 5px 15px;
-  scrollbar-width: none;
+/* NEW FILTER CONTAINER */
+.promo-filter-container {
+  display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;
 }
-.promo-filters::-webkit-scrollbar { display: none; }
-.pf-tab {
-  flex-shrink: 0; padding: 6px 14px; border-radius: 20px; font-size: 12px;
-  font-weight: 500; background: #fff; border: 1px solid #e0e0e0;
-  color: #78909c; cursor: pointer; transition: 0.2s;
-}
-body.large-mode .pf-tab { font-size: 15px; padding: 8px 16px; }
-.pf-tab.active { background: var(--promo-color); color: #fff; border-color: var(--promo-color); font-weight: 700; }
 
+/* ROW 1: STATUS SWITCH (Segmented Control) */
+.pf-row-status {
+  display: flex; background: #f0f0f0; border-radius: 8px; padding: 4px;
+  align-self: flex-start; /* 靠左對齊 */
+  border: 1px solid #e0e0e0; overflow: hidden;
+}
+.pf-status-btn {
+  padding: 6px 16px; font-size: 13px; font-weight: 500; color: #78909c;
+  cursor: pointer; transition: 0.2s; border-radius: 6px; margin: 2px;
+}
+.pf-status-btn.active {
+  background: #fff; color: var(--promo-color); font-weight: 800;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ROW 2: CATEGORY PILLS (Multi-Select + Wrap) */
+.pf-row-cats {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.pf-cat-btn {
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+  background: #fff; border: 1px solid #e0e0e0; color: #78909c;
+  cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px;
+}
+/* Active State for Category */
+.pf-cat-btn.active {
+  background: var(--promo-color); color: #fff; border-color: var(--promo-color); font-weight: 700;
+  box-shadow: 0 2px 6px rgba(255, 152, 0, 0.3);
+}
+/* "All" button style */
+.pf-cat-btn.btn-all { font-weight: 800; }
+
+body.large-mode .pf-status-btn { font-size: 15px; padding: 8px 20px; }
+body.large-mode .pf-cat-btn { font-size: 15px; padding: 8px 16px; }
+
+/* GRID & CARDS (Unchanged) */
 .promo-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
 }
@@ -330,7 +358,6 @@ body.large-mode .promo-t { font-size: 18px; }
 .promo-d { font-size: 11px; color: #78909c; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 body.large-mode .promo-d { font-size: 14px; color: #455a64; -webkit-line-clamp: 4; }
 
-/* CHANNEL ICONS ROW */
 .promo-meta {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 8px; border-top: 1px solid #f5f5f5; padding-top: 6px;
@@ -338,39 +365,24 @@ body.large-mode .promo-d { font-size: 14px; color: #455a64; -webkit-line-clamp: 
 .promo-date { font-size: 10px; color: var(--promo-color); font-weight: 700; }
 body.large-mode .promo-date { font-size: 13px; }
 
-/* Grid Layout for 2x2 */
-.channel-icons { 
-  display: grid; 
-  grid-template-columns: repeat(2, auto); 
-  gap: 3px; 
-}
+.channel-icons { display: grid; grid-template-columns: repeat(2, auto); gap: 3px; }
 .c-icon {
-  font-size: 14px; width: 24px; height: 24px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; color: #fff; cursor: pointer;
-  transition: transform 0.2s;
+  font-size: 14px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: #fff; cursor: pointer; transition: transform 0.2s;
 }
 .c-icon:active { transform: scale(0.9); }
-
 .c-icon.showroom { background: #795548; } 
 .c-icon.mart { background: #00bcd4; } 
 .c-icon.eshop { background: #e91e63; } 
 .c-icon.office { background: #607d8b; } 
 body.large-mode .c-icon { width: 28px; height: 28px; font-size: 16px; }
 
-.promo-card.expired {
-  background: #455a64 !important; /* Dark Gray */
-  border-color: #37474f;
-}
+.promo-card.expired { background: #455a64 !important; border-color: #37474f; }
 .promo-card.expired .promo-t { color: #cfd8dc; text-decoration: line-through; }
 .promo-card.expired .promo-d { color: #b0bec5; }
 .promo-card.expired .promo-date { color: #ef5350; font-weight: bold; }
 .promo-card.expired .promo-img { filter: grayscale(100%); opacity: 0.6; }
-.promo-card.expired .promo-date::after {
-  content: ' (已結束)';
-  margin-left: 4px;
-  color: #ffcdd2; font-weight: normal;
-}
+.promo-card.expired .promo-date::after { content: ' (已結束)'; margin-left: 4px; color: #ffcdd2; font-weight: normal; }
 
 @keyframes flashPromo { 0%,100% { border-color: transparent; } 50% { border-color: var(--promo-color); box-shadow: 0 0 0 4px rgba(255,152,0,0.3); } }
 .flash-promo { animation: flashPromo 1.5s ease-in-out infinite; }
@@ -384,60 +396,23 @@ body.large-mode .c-icon { width: 28px; height: 28px; font-size: 16px; }
 body.large-mode .promo-sticker { font-size: 12px; padding: 4px 8px; }
 .promo-sticker:active { background: #ffe0b2; }
 
-#promo-modal {
-  position: fixed; inset: 0; z-index: 10000;
-  background: rgba(0,0,0,0.95); backdrop-filter: blur(8px);
-  display: flex; justify-content: center; align-items: center;
-  opacity: 0; pointer-events: none; transition: opacity 0.3s;
-  padding: 20px;
-}
+/* MODAL & LIGHTBOX CSS (Unchanged...) */
+#promo-modal { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.95); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
 #promo-modal.open { opacity: 1; pointer-events: auto; }
-
-.pm-content {
-  background: #fff; width: 100%; max-width: 500px;
-  border-radius: 16px; overflow: hidden;
-  display: flex; flex-direction: column;
-  max-height: 90vh; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-  position: relative;
-}
-
-.pm-img-wrap {
-  background: #000;
-  width: 100%; min-height: 200px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden; position: relative;
-}
-.pm-img {
-  width: 100%; height: auto; max-height: 60vh; object-fit: contain;
-}
-
-.pm-info {
-  padding: 20px; overflow-y: auto; background: #fff; flex: 1;
-}
-
-/* MODAL HEADER LAYOUT */
-.pm-header-group {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 10px; margin-bottom: 12px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;
-}
+.pm-content { background: #fff; width: 100%; max-width: 500px; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; box-shadow: 0 10px 40px rgba(0,0,0,0.5); position: relative; }
+.pm-img-wrap { background: #000; width: 100%; min-height: 200px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+.pm-img { width: 100%; height: auto; max-height: 60vh; object-fit: contain; }
+.pm-info { padding: 20px; overflow-y: auto; background: #fff; flex: 1; }
+.pm-header-group { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
 .pm-text-col { flex: 1; }
-.pm-icons-col { 
-  flex-shrink: 0; display: flex; gap: 4px; padding-top: 4px;
-}
-
+.pm-icons-col { flex-shrink: 0; display: flex; gap: 4px; padding-top: 4px; }
 .pm-title { font-size: 20px; font-weight: 900; color: #d81b60; margin-bottom: 4px; line-height: 1.3; }
 body.large-mode .pm-title { font-size: 24px; }
 .pm-date { font-size: 12px; font-weight: 700; color: var(--promo-color); display: flex; align-items: center; gap: 4px; }
 body.large-mode .pm-date { font-size: 15px; }
 .pm-desc { font-size: 14px; color: #455a64; line-height: 1.6; white-space: pre-line; }
 body.large-mode .pm-desc { font-size: 18px; color: #000; }
-
-.pm-close-btn {
-  position: absolute; top: 10px; right: 10px;
-  background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%;
-  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; z-index: 10; border: none;
-}
+.pm-close-btn { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; border: none; }
 body.large-mode .pm-close-btn { width: 44px; height: 44px; top: 15px; right: 15px; }
 
 #lightbox {
@@ -728,25 +703,31 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
       <span class="material-icons-round" style="font-size:16px">arrow_back</span> 回列表
     </button>
   </div>
-  <div class="promo-filters">
-    <div class="pf-tab active" onclick="filterPromos('all')">全部</div>
-    <div class="pf-tab" onclick="filterPromos('health')">保健</div>
-    <div class="pf-tab" onclick="filterPromos('drinks')">飲品</div>
-    <div class="pf-tab" onclick="filterPromos('beauty')">美容</div>
-    <div class="pf-tab" onclick="filterPromos('cleaning')">清潔</div>
-    <div class="pf-tab" onclick="filterPromos('active')">進行中</div>
-    <div class="pf-tab" onclick="filterPromos('expired')">已結束</div>
+
+  <div class="promo-filter-container">
+    <div class="pf-row-status">
+      <div class="pf-status-btn active" id="st-active" onclick="switchPromoStatus('active')">進行中</div>
+      <div class="pf-status-btn" id="st-expired" onclick="switchPromoStatus('expired')">已結束</div>
+    </div>
+
+    <div class="pf-row-cats">
+      <div class="pf-cat-btn btn-all active" id="cat-all" onclick="resetPromoCats()">全部</div>
+      <div class="pf-cat-btn" id="cat-health" onclick="togglePromoCat('health')">保健</div>
+      <div class="pf-cat-btn" id="cat-drinks" onclick="togglePromoCat('drinks')">飲品</div>
+      <div class="pf-cat-btn" id="cat-beauty" onclick="togglePromoCat('beauty')">美容</div>
+      <div class="pf-cat-btn" id="cat-cleaning" onclick="togglePromoCat('cleaning')">清潔</div>
+    </div>
   </div>
 
-  <div class="promo-grid" id="promo-grid">
-    </div>
-  
+  <div class="promo-grid" id="promo-grid"></div>
+
   <div class="promo-floating-nav" id="promo-fab" style="display:block;">
     <div class="float-btn btn-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
       <span class="material-icons-round">arrow_upward</span>
     </div>
   </div>
 </div>
+
 
 <div id="promo-modal" onclick="closePromoModal()">
   <div class="pm-content" onclick="event.stopPropagation()">
@@ -1298,15 +1279,125 @@ function switchRank(type) {
   renderRankingList(type);
 }
 
-// --- PROMO RENDER & FILTER ---
-let currentPromoFilter = 'all';
+// --- PROMO RENDER & FILTER (V5.0 Multi-Filter Logic) ---
+let currentPromoStatus = 'active'; // 'active' or 'expired'
+let selectedPromoCats = new Set(); // Empty set = All
 
-function filterPromos(type) {
-  currentPromoFilter = type;
-  document.querySelectorAll(".pf-tab").forEach(el => {
-    el.classList.toggle("active", el.innerText === event.target.innerText);
-  });
+function switchPromoStatus(status) {
+  currentPromoStatus = status;
+
+  // UI Toggle
+  document.getElementById('st-active').classList.toggle('active', status === 'active');
+  document.getElementById('st-expired').classList.toggle('active', status === 'expired');
+
   renderPromotions();
+}
+
+function togglePromoCat(cat) {
+  if (selectedPromoCats.has(cat)) {
+    selectedPromoCats.delete(cat);
+  } else {
+    selectedPromoCats.add(cat);
+  }
+  updateCatUI();
+  renderPromotions();
+}
+
+function resetPromoCats() {
+  selectedPromoCats.clear();
+  updateCatUI();
+  renderPromotions();
+}
+
+function updateCatUI() {
+  // If set is empty, "All" is active
+  const isAll = (selectedPromoCats.size === 0);
+  document.getElementById('cat-all').classList.toggle('active', isAll);
+
+  ['health', 'drinks', 'beauty', 'cleaning'].forEach(c => {
+    document.getElementById('cat-' + c).classList.toggle('active', selectedPromoCats.has(c));
+  });
+}
+
+// Helper: Determine categories for a promo (returns Array)
+function getPromoCategories(promo) {
+  const cats = new Set();
+  const typeMap = {'美容':'beauty', '保養':'beauty', '清潔':'cleaning', '洗沐':'cleaning', '洗潔':'cleaning', '保健':'health', '健康':'health', '飲品':'drinks', '飲料':'drinks', '黑麥汁':'drinks'};
+
+  // 1. Check Keywords in Title (Fastest)
+  for (const [key, val] of Object.entries(typeMap)) {
+    if (promo.title && promo.title.includes(key)) cats.add(val);
+  }
+
+  // 2. Check Related Products
+  const raw = promo.relatedRaw || '';
+  const tokens = raw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+  tokens.forEach(token => {
+    // Direct code match
+    if (PRODUCT_MAP.has(token)) {
+      const p = PRODUCT_MAP.get(token);
+      cats.add(classifyProduct(p.name, p.category));
+    } else {
+      // Keyword match in related codes
+      if (typeMap[token]) cats.add(typeMap[token]);
+    }
+  });
+
+  return Array.from(cats);
+}
+
+function renderPromotions() {
+  const grid = document.getElementById("promo-grid");
+  grid.innerHTML = "";
+
+  let hasData = false;
+
+  PROMO_LIST.forEach(promo => {
+    // 1. Status Filter (Global Switch)
+    const isActive = isPromoActive(promo);
+    if (currentPromoStatus === 'active' && !isActive) return;
+    if (currentPromoStatus === 'expired' && isActive) return;
+
+    // 2. Category Filter (Multi-Select)
+    // If set is empty (All), pass. If not, check intersection.
+    if (selectedPromoCats.size > 0) {
+      const pCats = getPromoCategories(promo);
+      const intersect = pCats.some(c => selectedPromoCats.has(c));
+      if (!intersect) return; // No match
+    }
+
+    hasData = true;
+    const card = document.createElement("div");
+    card.className = "promo-card";
+    if(!isActive) card.classList.add('expired');
+    card.id = "promo-" + promo.id;
+    if(promo.color && promo.color !== '#fff' && isActive) card.style.background = promo.color;
+
+    const imgHtml = promo.img ? `<img src="${promo.img}" class="promo-img">` : `<span class="material-icons-round" style="color:#ccc">image</span>`;
+    card.onclick = () => openPromoModal(promo.id);
+
+    let iconsHtml = getChannelIconsHtml(promo);
+
+    card.innerHTML = `
+      <div class="promo-img-box">${imgHtml}</div>
+      <div class="promo-body">
+        <div class="promo-t">${promo.title}</div>
+        <div class="promo-d">${promo.content}</div>
+        <div class="promo-meta">
+          <div class="promo-date">${promo.start} ~ ${promo.end}</div>
+          <div class="channel-icons">${iconsHtml}</div>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  if(!hasData) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#90a4ae;">
+      <span class="material-icons-round" style="font-size:48px;margin-bottom:10px;">search_off</span><br>
+      沒有符合條件的活動
+    </div>`;
+  }
 }
 
 // [V4.1 NEW] Helper to generate icon HTML with names
@@ -1341,63 +1432,6 @@ function showChannelToast(text) {
   setTimeout(() => toast.classList.remove("show"), 3300);
 }
 
-function renderPromotions() {
-  const grid = document.getElementById("promo-grid");
-  grid.innerHTML = "";
-  
-  PROMO_LIST.forEach(promo => {
-    const isActive = isPromoActive(promo);
-    
-    if(currentPromoFilter === 'active' && !isActive) return;
-    if(currentPromoFilter === 'expired' && isActive) return;
-    
-    if(['health', 'drinks', 'beauty', 'cleaning'].includes(currentPromoFilter)) {
-      // (Category Filter Logic...)
-      const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
-      let match = false;
-      for(let token of tokens) {
-        const typeMap = {'美容':'beauty', '保健':'health', '清潔':'cleaning', '飲品':'drinks'};
-        if(typeMap[token] === currentPromoFilter) { match = true; break; }
-        let pCodes = [];
-        if(PRODUCT_MAP.has(token)) pCodes.push(token);
-        else pCodes = findProductsByKeyword(token);
-        for(let pc of pCodes) {
-          const p = PRODUCT_MAP.get(pc);
-          if(p && classifyProduct(p.name, p.category) === currentPromoFilter) {
-            match = true; break;
-          }
-        }
-        if(match) break;
-      }
-      if(!match) return;
-    }
-
-    const card = document.createElement("div");
-    card.className = "promo-card";
-    if(!isActive) card.classList.add('expired');
-    card.id = "promo-" + promo.id;
-    if(promo.color && promo.color !== '#fff' && isActive) card.style.background = promo.color;
-
-    const imgHtml = promo.img ? `<img src="${promo.img}" class="promo-img">` : `<span class="material-icons-round" style="color:#ccc">image</span>`;
-    card.onclick = () => openPromoModal(promo.id);
-
-    // [NEW] Use Helper
-    let iconsHtml = getChannelIconsHtml(promo);
-
-    card.innerHTML = `
-      <div class="promo-img-box">${imgHtml}</div>
-      <div class="promo-body">
-        <div class="promo-t">${promo.title}</div>
-        <div class="promo-d">${promo.content}</div>
-        <div class="promo-meta">
-          <div class="promo-date">${promo.start} ~ ${promo.end}</div>
-          <div class="channel-icons">${iconsHtml}</div>
-        </div>
-      </div>
-    `;
-    grid.appendChild(card);
-  });
-}
 
 function renderUI(filterText = "") {
   const container = document.getElementById("main-container");
@@ -1713,35 +1747,25 @@ function printCatalog() {
     </div>
   `;
 
-  // 1. Promo Section - Grouped by Category & Colored
+  // 1. Promo Section (V5.0 Updated)
   const activePromos = PROMO_LIST.filter(p => isPromoActive(p));
   if(activePromos.length > 0) {
     html += `<div class="print-sec-title">🔥 本期熱門活動 <span class="print-note">(依列印當下資訊)</span></div>`;
-    
-    // Sort logic: Health > Drinks > Beauty > Cleaning > Other
-    // We reuse classifyProduct logic based on title or content
+
     const sortOrder = { 'health': 1, 'drinks': 2, 'beauty': 3, 'cleaning': 4, 'other': 5 };
-    
-    // Helper to determine promo category
-    const getPromoCat = (p) => {
-      if(p.title.includes("保健") || p.title.includes("益生菌")) return 'health';
-      if(p.title.includes("飲品") || p.title.includes("黑麥汁")) return 'drinks';
-      if(p.title.includes("美容") || p.title.includes("保養")) return 'beauty';
-      if(p.title.includes("清潔") || p.title.includes("洗")) return 'cleaning';
-      
-      // Fallback: check related products
-      const codes = p.relatedRaw.split(/[\r\n,\s]+/).filter(Boolean);
-      if(codes.length > 0) {
-        const prod = PRODUCT_MAP.get(codes[0]);
-        if(prod) return classifyProduct(prod.name, prod.category);
-      }
-      return 'other';
+
+    // Use the new helper function for consistent categorization
+    const getPrimaryCat = (p) => {
+      const cats = getPromoCategories(p); // Returns array ['health', 'beauty']
+      if(cats.length === 0) return 'other';
+      // Return the one with highest priority (lowest number)
+      return cats.sort((a,b) => (sortOrder[a]||5) - (sortOrder[b]||5))[0];
     };
 
-    activePromos.sort((a,b) => sortOrder[getPromoCat(a)] - sortOrder[getPromoCat(b)]);
+    activePromos.sort((a,b) => (sortOrder[getPrimaryCat(a)]||5) - (sortOrder[getPrimaryCat(b)]||5));
 
     activePromos.forEach(p => {
-      const cat = getPromoCat(p);
+      const cat = getPrimaryCat(p);
       html += `
         <div class="p-promo-box p-cat-${cat}">
           <div class="p-promo-t">★ ${p.title}</div>
