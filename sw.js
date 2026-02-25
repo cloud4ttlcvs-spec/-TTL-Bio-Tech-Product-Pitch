@@ -1,101 +1,88 @@
-// sw.js - V3.6.1 圖片快取增強版
-const CACHE_NAME = 'ttl-pwa-v56'; // App 核心快取
-const IMAGE_CACHE_NAME = 'ttl-images-v1'; // 專門存圖片的快取
-const urlsToCache = [
-  './',
-  './index.html',
+/* TTL Bio-Tech 戰情中心 SW (App Shell precache) v98.11.2
+   - Precache start_url + manifest + icons (enables installability)
+   - Same-origin static assets: stale-while-revalidate
+   - Cross-origin requests (Google Sheets CSV, CDN): network-only (no cache)
+   - Offline behavior: App shell loads, but data fetches require network
+*/
+const CACHE_NAME = 'ttlbiotech-admin-shell-v98.11.2';
+const PRECACHE_URLS = [
+  './manage_ttlbiotech_f3p4.html',
   './manifest.json',
-  './LOGO.png',
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap',
-  'https://fonts.googleapis.com/icon?family=Material+Icons+Round',
-  'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js'
+  './icons/icon-192.png',
+  './icons/icon-512.png',
 ];
 
-self.addEventListener('install', event => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
+// Install: precache essentials
+self.addEventListener('install', (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(PRECACHE_URLS);
+    await self.skipWaiting();
+  })());
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          // 清除舊版本的核心快取，但保留圖片快取(以免更新版本後圖片要重抓)
-          if (cacheName !== CACHE_NAME && cacheName !== IMAGE_CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-  return self.clients.claim();
+// Activate: cleanup old caches
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => (k.startsWith('ttlbiotech-admin-shell-') && k !== CACHE_NAME) ? caches.delete(k) : Promise.resolve()));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+function isProbablyCsv(url) {
+  return url.searchParams.get('output') === 'csv'
+    || url.pathname.includes('/gviz/tq')
+    || url.href.includes('spreadsheets.google')
+    || url.href.includes('googleusercontent.com');
+}
 
-  // [策略 1] 針對圖片：Stale-While-Revalidate (優先用舊圖，背景偷偷更新)
-  // 判斷條件：副檔名是圖片，或是來自 GitHub/JSDelivr 的圖片請求
-  if (url.pathname.match(/\.(jpg|jpeg|png|gif|webp)$/i) || 
-      url.hostname.includes('githubusercontent.com') || 
-      url.hostname.includes('jsdelivr.net')) {
-      
-    event.respondWith(
-      caches.open(IMAGE_CACHE_NAME).then(cache => {
-        return cache.match(event.request).then(cachedResponse => {
-          const fetchPromise = fetch(event.request).then(networkResponse => {
-            // 如果網路抓取成功，更新快取
-            if (networkResponse.ok) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          }).catch(() => {
-            // 網路失敗時，什麼都不做(依靠快取)
-          });
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-          // 如果有快取，直接回傳快取 (讓使用者覺得超快)
-          // 同時背景執行 fetchPromise 更新快取
-          return cachedResponse || fetchPromise;
-        });
-      })
-    );
-    return; // 結束，不執行下面的邏輯
+  const url = new URL(req.url);
+
+  // Never cache cross-origin (Google Sheets CSV, CDN, etc.)
+  if (url.origin !== self.location.origin) {
+    event.respondWith(fetch(req));
+    return;
   }
 
-  // [策略 2] 針對 App 核心檔案：Cache First
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) return response;
-        return fetch(event.request);
-      })
-  );
-});
-
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+  // Never cache csv-like endpoints even if same-origin
+  if (isProbablyCsv(url)) {
+    event.respondWith(fetch(req, { cache: 'no-store' }));
+    return;
   }
 
+  // Navigation requests: network-first, fallback to cached app shell
+  if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(req);
+        // Cache latest HTML for faster subsequent load
+        const cache = await caches.open(CACHE_NAME);
+        try { if (fresh && fresh.ok && fresh.type === 'basic') cache.put('./manage_ttlbiotech_f3p4.html', fresh.clone()); } catch(e) {}
+        return fresh;
+      } catch (e) {
+        const cache = await caches.open(CACHE_NAME);
+        return (await cache.match('./manage_ttlbiotech_f3p4.html')) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Same-origin static assets: stale-while-revalidate
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(req);
+    const fetchPromise = fetch(req).then((res) => {
+      try {
+        if (res && res.ok && res.type === 'basic') cache.put(req, res.clone());
+      } catch(e) {}
+      return res;
+    }).catch(() => cached);
+
+    return cached || fetchPromise;
+  })());
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
