@@ -249,12 +249,36 @@ body.large-mode .new-badge { font-size: 12px; padding: 4px 10px 4px 8px; }
 
 /* Zoom Hint Logic */
 .zoom-hint {
-  position: absolute; bottom: 2px; right: 2px; color: #fff; background: rgba(0,0,0,0.4); 
+  position: absolute; bottom: 2px; left: 2px; right: auto; color: #fff; background: rgba(0,0,0,0.4); 
   border-radius: 4px; padding: 2px; display: flex; align-items: center; justify-content: center; 
   opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 5;
 }
 .zoom-hint span { font-size: 14px; }
 .p-card.active .zoom-hint { opacity: 0.6; }
+
+/* Video Hint (triangle) - indicates this product has a video_url */
+.video-hint {
+  position: absolute; bottom: 4px; right: 4px;
+  width: 22px; height: 22px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.22);
+  color: rgba(255,255,255,0.78);
+  opacity: 0.72;
+  pointer-events: none; z-index: 6;
+}
+.video-hint span { font-size: 16px; transform: translateX(1px); }
+.video-hint.new {
+  background: rgba(0,0,0,0.25);
+  color: rgba(255,255,255,0.88);
+  opacity: 0.82;
+}
+.video-hint.seen {
+  background: rgba(0,0,0,0.18);
+  color: rgba(207,216,220,0.75);
+  opacity: 0.42;
+}
+
+
 
 .p-basic-info { flex: 1; min-width: 0; }
 .p-code { font-size: 10px; color: #b0bec5; font-family: monospace; }
@@ -1058,11 +1082,57 @@ let PROMO_MAP = new Map();
 let PRODUCT_TO_PROMO_MAP = new Map();
 let RANKINGS = { all:[], health:[], drinks:[], beauty:[], cleaning:[] };
 
-const PRODUCT_MEDIA_PLAYED = new Set(); // product_code set: user has clicked "play" at least once
+const VIDEO_SEEN_KEY = 'ttl_product_video_seen_v1';
+let VIDEO_SEEN_MAP = (() => {
+  try { return JSON.parse(localStorage.getItem(VIDEO_SEEN_KEY) || '{}') || {}; } catch(e) { return {}; }
+})();
+
+function saveVideoSeenMap() {
+  try { localStorage.setItem(VIDEO_SEEN_KEY, JSON.stringify(VIDEO_SEEN_MAP || {})); } catch(e) {}
+}
+function getSeenVideoUrl(code) {
+  return (VIDEO_SEEN_MAP && code && VIDEO_SEEN_MAP[code]) ? VIDEO_SEEN_MAP[code] : '';
+}
+function isVideoSeen(code, videoUrl) {
+  const v = (videoUrl || '').trim();
+  if (!code || !v) return true; // no video => treat as seen
+  return getSeenVideoUrl(code) === v;
+}
+function markVideoSeen(code, videoUrl) {
+  const v = (videoUrl || '').trim();
+  if (!code || !v) return;
+  VIDEO_SEEN_MAP[code] = v;
+  saveVideoSeenMap();
+  updateVideoHintUI(code, v);
+}
+
+function openInNewTab(url) {
+  const u = normalizeUrl(url);
+  if (!u) return false;
+  const a = document.createElement('a');
+  a.href = u;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return true;
+}
 
 function safeDomId(str) {
   return (str || '').toString().replace(/[^a-zA-Z0-9_-]/g, '_');
 }
+
+function updateVideoHintUI(code, videoUrl) {
+  const sid = safeDomId(code);
+  const el = document.getElementById('vh-' + sid);
+  if (!el) return;
+  const seen = isVideoSeen(code, videoUrl);
+  el.classList.toggle('seen', seen);
+  el.classList.toggle('new', !seen);
+}
+
 
 function escapeHtml(s) {
   return (s || '').toString()
@@ -1121,9 +1191,7 @@ function parseMoreLinks(raw) {
 
 function openExternalLink(e, url) {
   if (e) e.stopPropagation();
-  const u = normalizeUrl(url);
-  if (!u) return;
-  window.open(u, '_blank', 'noopener');
+  openInNewTab(url);
 }
 
 let CURRENT_MEDIA_CODE = null;
@@ -1135,24 +1203,11 @@ function openProductVideo(e, code) {
   const url = normalizeUrl(p.videoUrl);
   if (!url) return;
 
-  PRODUCT_MEDIA_PLAYED.add(code);
-
-  // Reveal "More" button only after Play (if there are more links)
-  const moreRaw = (p.moreLinksRaw || '').trim();
-  const hasMore = moreRaw.length > 3;
-  const moreBtn = document.getElementById('btn-more-' + safeDomId(code));
-  if (moreBtn && hasMore) {
-    moreBtn.classList.remove('hidden');
-    // If this card is currently open, refresh accordion height
-    const activeCard = document.querySelector('.p-card.active');
-    if (activeCard && activeCard.querySelector('#' + moreBtn.id)) {
-      const panel = activeCard.querySelector('.p-detail');
-      if (panel) panel.style.maxHeight = panel.scrollHeight + 'px';
-    }
-  }
+  // Mark as seen (only if the video_url equals last_seen then it becomes "seen/grey")
+  markVideoSeen(code, p.videoUrl);
 
   // UX: open in new tab, keep current modal state
-  window.open(url, '_blank', 'noopener');
+  openInNewTab(url);
 
   // light feedback
   const toast = document.getElementById("toast");
@@ -1186,11 +1241,10 @@ function openProductMoreSheet(e, code) {
         const label = escapeHtml(it.label || '連結');
         const urlRaw = (it.url || '');
         const url = escapeHtml(urlRaw);
-        const urlJs = JSON.stringify(urlRaw);
         const t = it.type || 'other';
         const ico = iconMap[t] || 'link';
         return `
-          <div class="ms-item" onclick="openExternalLink(event, ${urlJs})">
+          <div class="ms-item" data-url="${url}">
             <div class="ms-icon ${t}"><span class="material-icons-round">${ico}</span></div>
             <div class="ms-text">
               <div class="ms-label">${label}</div>
@@ -1200,6 +1254,14 @@ function openProductMoreSheet(e, code) {
           </div>
         `;
       }).join('');
+
+      // Bind click handlers (avoid inline onclick quoting issues + improve compatibility)
+      Array.from(listEl.querySelectorAll('.ms-item')).forEach(el => {
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          openInNewTab(el.dataset.url || '');
+        });
+      });
     }
   }
 
@@ -1427,9 +1489,9 @@ async function init() {
       const listPrice = getVal(row, 'list_price') || "0";
       const spec = getVal(row, 'spec');
             const photo = getVal(row, 'photos url');
-      // [預設計擴充] 目前系統只使用 photos url 作為商品圖；photos url 2 / 3 先預留給「影片連結 / 更多素材」
-      const videoUrl = (getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || getVal(row, 'video_url') || getVal(row, 'video link') || "").trim();
-      const moreLinksRaw = (getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || getVal(row, 'more_links_raw') || getVal(row, 'more_links') || "").trim();
+      // [預設計擴充] 商品影音/更多素材：優先讀 video_url / more_links（向下相容舊欄位 photos url 2 / 3）
+      const videoUrl = (getVal(row, 'video_url') || getVal(row, 'video link') || getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || "").trim();
+      const moreLinksRaw = (getVal(row, 'more_links') || getVal(row, 'more_links_raw') || getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || "").trim();
 
       const p = {
         id: `p-${idx}`, code: code, name: finalName, category: category,
@@ -1766,11 +1828,11 @@ function renderUI(filterText = "") {
       const _moreRaw = (p.moreLinksRaw || '').trim();
       const _hasVideo = _vUrl.length > 5;
       const _hasMore = _moreRaw.length > 3;
-      const _played = PRODUCT_MEDIA_PLAYED.has(p.code);
-      const _moreVisible = _hasMore && (_hasVideo ? _played : true); // 若沒有影片但有更多，直接顯示更多（避免死路）
       const _sid = safeDomId(p.code);
-      const playBtnHtml = _hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_circle</span></div>` : ``;
-      const moreBtnHtml = _hasMore ? `<div class="btn-media btn-more ${_moreVisible ? '' : 'hidden'}" id="btn-more-${_sid}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ``;
+      const _isSeen = _hasVideo ? isVideoSeen(p.code, _vUrl) : true;
+      const videoHintHtml = _hasVideo ? `<div class="video-hint ${_isSeen ? 'seen' : 'new'}" id="vh-${_sid}"><span class="material-icons-round">play_arrow</span></div>` : ``;
+      const playBtnHtml = _hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : ``;
+      const moreBtnHtml = _hasMore ? `<div class="btn-media btn-more" id="btn-more-${_sid}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ``;
       
       let stickerHtml = "";
       if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
@@ -1798,6 +1860,7 @@ function renderUI(filterText = "") {
         imgHtml = `
           <div class="p-img-box" onclick="onProductImageClick(event, '${p.photo}')">
           <img src="${p.photo}" loading="lazy">
+          ${videoHintHtml}
           <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
           </div>
         `;
@@ -1824,7 +1887,7 @@ function renderUI(filterText = "") {
             <div class="p-price-row"><div class="p-price">${p.price.toLocaleString()}</div><span class="material-icons-round p-arrow">expand_more</span></div>
           </div>
         </div>
-        <div class="p-detail"><div class="p-detail-inner">${detailContent}${(moreBtnHtml||playBtnHtml||shareBtnHtml)?`<div class="p-actions">${moreBtnHtml}${playBtnHtml}${shareBtnHtml}</div>`:''}</div></div>
+        <div class="p-detail"><div class="p-detail-inner">${detailContent}${(moreBtnHtml||playBtnHtml||shareBtnHtml)?`<div class="p-actions">${playBtnHtml}${moreBtnHtml}${shareBtnHtml}</div>`:''}</div></div>
       `;
       grid.appendChild(card);
     });
