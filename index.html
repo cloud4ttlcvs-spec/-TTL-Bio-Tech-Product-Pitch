@@ -256,28 +256,41 @@ body.large-mode .new-badge { font-size: 12px; padding: 4px 10px 4px 8px; }
 .zoom-hint span { font-size: 14px; }
 .p-card.active .zoom-hint { opacity: 0.6; }
 
-/* Video Hint (triangle) - indicates this product has a video_url */
+/* Video Hint Badge (V5.3) - indicates this product has a video_url */
 .video-hint {
-  position: absolute; bottom: 4px; right: 4px;
-  width: 22px; height: 22px; border-radius: 6px;
+  position: absolute; bottom: 5px; right: 5px;
+  width: 22px; height: 22px; border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.22);
-  color: rgba(255,255,255,0.78);
-  opacity: 0.72;
   pointer-events: none; z-index: 6;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.22);
+  color: rgba(255,255,255,0.80);
+  opacity: 0.72;
+  /* Optional: helps readability on mixed photo backgrounds (no harm if unsupported) */
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
 }
 .video-hint span { font-size: 16px; transform: translateX(1px); }
+
+/* NEW (unseen / updated video): warm badge + subtle halo */
 .video-hint.new {
+  background: linear-gradient(135deg, rgba(255,193,7,0.96), rgba(255,152,0,0.92));
+  color: rgba(255,255,255,0.98);
+  opacity: 0.98;
+  border-color: rgba(255,255,255,0.35);
+  box-shadow:
+    0 0 0 2px rgba(255,152,0,0.18),
+    0 0 10px rgba(255,152,0,0.26);
+}
+
+/* SEEN (already watched): previous "bright" becomes the new grey baseline */
+.video-hint.seen {
   background: rgba(0,0,0,0.25);
   color: rgba(255,255,255,0.88);
   opacity: 0.82;
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: none;
 }
-.video-hint.seen {
-  background: rgba(0,0,0,0.18);
-  color: rgba(207,216,220,0.75);
-  opacity: 0.42;
-}
-
 
 
 .p-basic-info { flex: 1; min-width: 0; }
