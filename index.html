@@ -389,13 +389,20 @@ body.large-mode .ms-sub{ font-size:14px; }
 }
 .ms-item:active{ background:#eceff1; }
 .ms-icon{
-  width:34px; height:34px; border-radius:12px;
+  width:34px; height:34px; border-radius:999px;
   display:flex; align-items:center; justify-content:center;
   color:#fff; flex-shrink:0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
 }
-.ms-icon.yt{ background:#e53935; }
-.ms-icon.ig{ background:#8e24aa; }
-.ms-icon.fb{ background:#1e88e5; }
+.ms-icon svg{
+  width:18px; height:18px; display:block;
+  fill: currentColor;
+}
+.ms-icon.yt{ background:#ff0000; }
+.ms-icon.ig{ background: radial-gradient(circle at 30% 110%, #feda75 0%, #fa7e1e 22%, #d62976 45%, #962fbf 70%, #4f5bd5 100%); }
+.ms-icon.fb{ background:#1877f2; }
+.ms-icon.th{ background:#111; }
 .ms-icon.url{ background:#546e7a; }
 .ms-icon.other{ background:#9e9e9e; }
 .ms-text{ flex:1; min-width:0; display:flex; flex-direction:column; }
@@ -1169,6 +1176,7 @@ function inferLinkType(url) {
   if (u.includes('youtu.be') || u.includes('youtube.com')) return 'yt';
   if (u.includes('instagram.com')) return 'ig';
   if (u.includes('facebook.com') || u.includes('fb.watch')) return 'fb';
+  if (u.includes('threads.net')) return 'th';
   return 'url';
 }
 
@@ -1181,25 +1189,49 @@ function parseMoreLinks(raw) {
       const t = parts[0].toLowerCase();
       const label = parts[1];
       const url = normalizeUrl(parts.slice(2).join('|'));
-      const type = (t === 'yt' || t === 'youtube') ? 'yt' : (t === 'ig' || t === 'instagram') ? 'ig' : (t === 'fb' || t === 'facebook') ? 'fb' : (t === 'url' || t === 'link') ? 'url' : 'other';
+      const type = (t === 'yt' || t === 'youtube') ? 'yt' : (t === 'ig' || t === 'instagram') ? 'ig' : (t === 'fb' || t === 'facebook') ? 'fb' : (t === 'th' || t === 'threads') ? 'th' : (t === 'url' || t === 'link') ? 'url' : 'other';
       items.push({ type, label, url });
       continue;
     }
     if (parts.length === 2) {
       const t = parts[0].toLowerCase();
       const url = normalizeUrl(parts[1]);
-      const type = (t === 'yt' || t === 'youtube') ? 'yt' : (t === 'ig' || t === 'instagram') ? 'ig' : (t === 'fb' || t === 'facebook') ? 'fb' : (t === 'url' || t === 'link') ? 'url' : inferLinkType(url);
-      const label = (type === 'yt') ? 'YouTube' : (type === 'ig') ? 'Instagram' : (type === 'fb') ? 'Facebook' : '連結';
+      const type = (t === 'yt' || t === 'youtube') ? 'yt' : (t === 'ig' || t === 'instagram') ? 'ig' : (t === 'fb' || t === 'facebook') ? 'fb' : (t === 'th' || t === 'threads') ? 'th' : (t === 'url' || t === 'link') ? 'url' : inferLinkType(url);
+      const label = labelForLinkType(type);
       items.push({ type, label, url });
       continue;
     }
     const url = normalizeUrl(line);
     if (!url) continue;
     const type = inferLinkType(url);
-    const label = (type === 'yt') ? 'YouTube' : (type === 'ig') ? 'Instagram' : (type === 'fb') ? 'Facebook' : '連結';
+    const label = labelForLinkType(type);
     items.push({ type, label, url });
   }
   return items;
+}
+
+function labelForLinkType(type) {
+  if (type === 'yt') return 'YouTube';
+  if (type === 'ig') return 'Instagram';
+  if (type === 'fb') return 'Facebook';
+  if (type === 'th') return 'Threads';
+  return '連結';
+}
+
+// Brand SVGs (inline, no external dependency)
+function getBrandSvg(type) {
+  switch (type) {
+    case 'yt':
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.593 7.203a2.506 2.506 0 0 0-1.762-1.766C18.265 5.007 12 5 12 5s-6.264-.007-7.831.404a2.56 2.56 0 0 0-1.766 1.778c-.413 1.566-.417 4.814-.417 4.814s-.004 3.264.406 4.814c.23.857.905 1.534 1.763 1.765 1.582.43 7.83.437 7.83.437s6.265.007 7.831-.403a2.515 2.515 0 0 0 1.767-1.763c.414-1.565.417-4.812.417-4.812s.02-3.265-.407-4.831zM9.996 15.005l.005-6 5.207 3.005-5.212 2.995z"/></svg>`;
+    case 'ig':
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>`;
+    case 'fb':
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M23.9981 11.9991C23.9981 5.37216 18.626 0 11.9991 0C5.37216 0 0 5.37216 0 11.9991C0 17.9882 4.38789 22.9522 10.1242 23.8524V15.4676H7.07758V11.9991H10.1242V9.35553C10.1242 6.34826 11.9156 4.68714 14.6564 4.68714C15.9692 4.68714 17.3424 4.92149 17.3424 4.92149V7.87439H15.8294C14.3388 7.87439 13.8739 8.79933 13.8739 9.74824V11.9991H17.2018L16.6698 15.4676H13.8739V23.8524C19.6103 22.9522 23.9981 17.9882 23.9981 11.9991Z"/></svg>`;
+    case 'th':
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.321 6.016c-.27-.18-1.166-.802-1.166-.802.756-1.081 1.753-1.502 3.132-1.502.975 0 1.803.327 2.394.948s.928 1.509 1.005 2.644q.492.207.905.484c1.109.745 1.719 1.86 1.719 3.137 0 2.716-2.226 5.075-6.256 5.075C4.594 16 1 13.987 1 7.994 1 2.034 4.482 0 8.044 0 9.69 0 13.55.243 15 5.036l-1.36.353C12.516 1.974 10.163 1.43 8.006 1.43c-3.565 0-5.582 2.171-5.582 6.79 0 4.143 2.254 6.343 5.63 6.343 2.777 0 4.847-1.443 4.847-3.556 0-1.438-1.208-2.127-1.27-2.127-.236 1.234-.868 3.31-3.644 3.31-1.618 0-3.013-1.118-3.013-2.582 0-2.09 1.984-2.847 3.55-2.847.586 0 1.294.04 1.663.114 0-.637-.54-1.728-1.9-1.728-1.25 0-1.566.405-1.967.868ZM8.716 8.19c-2.04 0-2.304.87-2.304 1.416 0 .878 1.043 1.168 1.6 1.168 1.02 0 2.067-.282 2.232-2.423a6.2 6.2 0 0 0-1.528-.161"/></svg>`;
+    default:
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.59 13.41a1.996 1.996 0 0 1 0-2.82l2.83-2.83a2 2 0 1 1 2.83 2.83l-1.41 1.41-.71-.71 1.41-1.41a1 1 0 1 0-1.41-1.41l-2.83 2.83a1 1 0 0 0 1.41 1.41l.59-.59.71.71-.59.59a1.996 1.996 0 0 1-2.82 0Zm2.82 2.82a1.996 1.996 0 0 1 0 2.82l-2.83 2.83a2 2 0 1 1-2.83-2.83l1.41-1.41.71.71-1.41 1.41a1 1 0 1 0 1.41 1.41l2.83-2.83a1 1 0 0 0-1.41-1.41l-.59.59-.71-.71.59-.59a1.996 1.996 0 0 1 2.82 0ZM7.76 12.95l-.71-.71.71-.71.71.71-.71.71Zm8.48-1.9.71.71-.71.71-.71-.71.71-.71Z"/></svg>`;
+  }
 }
 
 function openExternalLink(e, url) {
@@ -1249,16 +1281,16 @@ function openProductMoreSheet(e, code) {
     if (!items.length) {
       listEl.innerHTML = `<div class="ms-empty"><span class="material-icons-round" style="font-size:40px">search_off</span><br>沒有可用的連結</div>`;
     } else {
-      const iconMap = { yt:'smart_display', ig:'photo_camera', fb:'movie', url:'link', other:'link' };
       listEl.innerHTML = items.map(it => {
         const label = escapeHtml(it.label || '連結');
         const urlRaw = (it.url || '');
         const url = escapeHtml(urlRaw);
-        const t = it.type || 'other';
-        const ico = iconMap[t] || 'link';
+        let t = it.type || 'other';
+        if (!['yt','ig','fb','th','url','other'].includes(t)) t = 'other';
+        const svg = getBrandSvg(t);
         return `
           <div class="ms-item" data-url="${url}">
-            <div class="ms-icon ${t}"><span class="material-icons-round">${ico}</span></div>
+            <div class="ms-icon ${t}">${svg}</div>
             <div class="ms-text">
               <div class="ms-label">${label}</div>
               <div class="ms-url">${url}</div>
