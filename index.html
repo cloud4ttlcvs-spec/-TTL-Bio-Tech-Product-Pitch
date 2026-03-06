@@ -1390,6 +1390,12 @@ window.onload = function() {
       activeCard.querySelector('.p-detail').style.maxHeight = null;
       return;
     }
+
+    if (activeTagFilter && (!state || state.page !== 'tag-filter')) {
+      restoreFromTagFilter(state && state.cardId ? state.cardId : '');
+      return;
+    }
+
     if (!state || state.page === 'root') {
       showExitModal();
     }
@@ -1854,15 +1860,43 @@ function productHasTag(product, targetTag) {
 }
 
 let activeTagFilter = '';
+let tagFilterSourceCardId = '';
+
+function reopenProductCard(cardId, scrollIntoView = true) {
+  if (!cardId) return;
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.add('active');
+  const panel = card.querySelector('.p-detail');
+  if (panel) panel.style.maxHeight = panel.scrollHeight + "px";
+  if (scrollIntoView) {
+    card.scrollIntoView({ behavior: 'auto', block: 'center' });
+  }
+}
+
+function restoreFromTagFilter(returnCardId) {
+  activeTagFilter = '';
+  const input = document.getElementById('searchInput');
+  if (input) input.value = '';
+  renderUI('');
+  const ranking = document.getElementById("ranking-section");
+  if (ranking) ranking.style.display = 'block';
+  const reopenId = returnCardId || tagFilterSourceCardId;
+  tagFilterSourceCardId = '';
+  reopenProductCard(reopenId, true);
+}
 
 function applyTagFilter(e, tag) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
+  const sourceCard = e && e.currentTarget ? e.currentTarget.closest('.p-card') : document.querySelector('.p-card.active');
+  tagFilterSourceCardId = sourceCard ? sourceCard.id : '';
   activeTagFilter = String(tag || '').trim().replace(/^#/, '');
   const input = document.getElementById('searchInput');
   if (input) input.value = activeTagFilter;
+  history.pushState({page: 'tag-filter', tag: activeTagFilter, returnCardId: tagFilterSourceCardId}, document.title);
   renderUI(activeTagFilter);
   const ranking = document.getElementById("ranking-section");
   if (ranking) ranking.style.display = activeTagFilter ? 'none' : 'block';
@@ -2005,6 +2039,7 @@ function renderUI(filterText = "") {
 let searchTimeout;
 function handleSearch(val) {
   activeTagFilter = '';
+  tagFilterSourceCardId = '';
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
     const keyword = val.trim();
@@ -2015,6 +2050,7 @@ function handleSearch(val) {
 
 function clearSearch() {
   activeTagFilter = '';
+  tagFilterSourceCardId = '';
   document.getElementById('searchInput').value = '';
   handleSearch('');
   document.getElementById('searchInput').focus(); // Keep focus or blur as needed
