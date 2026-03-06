@@ -311,6 +311,10 @@ body.large-mode .pitch-title { font-size: 18px; }
 body.large-mode .pitch-content { color: #263238; }
 .pitch-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
 .tag { font-size: 10px; color: #546e7a; background: #eceff1; padding: 2px 8px; border-radius: 4px; }
+.tag.tag-clickable { cursor: pointer; user-select: none; transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+.tag.tag-clickable:hover { background: #dfe7ea; }
+.tag.tag-clickable:active { transform: scale(0.96); }
+.tag.tag-clickable.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(0,137,123,0.18); }
 body.large-mode .tag { font-size: 12px; padding: 4px 10px; }
 .no-data { font-size: 12px; color: #b0bec5; text-align: center; padding: 10px; }
 .btn-share {
@@ -1820,10 +1824,56 @@ function showChannelToast(text) {
   setTimeout(() => toast.classList.remove("show"), 3300);
 }
 
+function escapeRegExp(text) {
+  return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function escapeAttr(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function getTagList(rawTags) {
+  return String(rawTags || '')
+    .split(/,|，/)
+    .map(t => t.trim().replace(/^#/, ''))
+    .filter(Boolean);
+}
+
+function normalizeTag(tag) {
+  return String(tag || '').trim().replace(/^#/, '').toLowerCase();
+}
+
+function productHasTag(product, targetTag) {
+  const target = normalizeTag(targetTag);
+  if (!target) return false;
+  return getTagList(product?.pitch?.tags).some(tag => normalizeTag(tag) === target);
+}
+
+let activeTagFilter = '';
+
+function applyTagFilter(e, tag) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  activeTagFilter = String(tag || '').trim().replace(/^#/, '');
+  const input = document.getElementById('searchInput');
+  if (input) input.value = activeTagFilter;
+  renderUI(activeTagFilter);
+  const ranking = document.getElementById("ranking-section");
+  if (ranking) ranking.style.display = activeTagFilter ? 'none' : 'block';
+  const main = document.getElementById('main-container');
+  if (main) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 function renderUI(filterText = "") {
   const container = document.getElementById("main-container");
   const nav = document.getElementById("topNav");
+  const activeTagNorm = normalizeTag(activeTagFilter);
   container.querySelectorAll('.cat-section').forEach(e => e.remove());
   if(!filterText) nav.innerHTML = ""; 
 
@@ -1832,8 +1882,8 @@ function renderUI(filterText = "") {
   const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
   const highlight = (text, term) => {
     if(!term) return text;
-    const re = new RegExp(`(${term})`, 'gi');
-    return text.replace(re, '<mark class="highlight">$1</mark>');
+    const re = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+    return String(text).replace(re, '<mark class="highlight">$1</mark>');
   };
 
   order.forEach(key => {
@@ -1841,10 +1891,13 @@ function renderUI(filterText = "") {
     if(secData.items.length === 0) return;
 
     const filteredItems = secData.items.filter(p => {
+      if(activeTagNorm) return productHasTag(p, activeTagNorm);
       if(!filterText) return true;
       const term = filterText.toLowerCase();
+      const pitchTitle = String(p?.pitch?.title || '').toLowerCase();
+      const pitchTags = String(p?.pitch?.tags || '').toLowerCase();
       return p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) ||
-             (p.pitch && (p.pitch.title.toLowerCase().includes(term) || p.pitch.tags.toLowerCase().includes(term)));
+             pitchTitle.includes(term) || pitchTags.includes(term);
     });
 
     if(filteredItems.length === 0) return; 
@@ -1891,7 +1944,12 @@ function renderUI(filterText = "") {
       
       if (p.pitch) {
         let tagsHtml = "";
-        if(p.pitch.tags) tagsHtml = `<div class="pitch-tags">` + p.pitch.tags.split(/,|，/).map(t => `<span class="tag">#${highlight(t.trim(), filterText)}</span>`).join('') + `</div>`;
+        if(p.pitch.tags) {
+          tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
+            const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
+            return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlight(tag, filterText)}</span>`;
+          }).join('') + `</div>`;
+        }
         detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlight(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
         
         const shareText = `【 ✨ 產品推薦 】\n🌿 ${p.name}\n-------------------\n💬 主打：${p.pitch.title || ''}\n📝 特色：${p.pitch.content || ''}\n💰 優惠價：$${p.price.toLocaleString()}\n${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}\n-------------------\n(台酒生技)`;
@@ -1946,14 +2004,17 @@ function renderUI(filterText = "") {
 
 let searchTimeout;
 function handleSearch(val) {
+  activeTagFilter = '';
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
-    renderUI(val.trim());
-    document.getElementById("ranking-section").style.display = val ? 'none' : 'block';
+    const keyword = val.trim();
+    renderUI(keyword);
+    document.getElementById("ranking-section").style.display = keyword ? 'none' : 'block';
   }, 300);
 }
 
 function clearSearch() {
+  activeTagFilter = '';
   document.getElementById('searchInput').value = '';
   handleSearch('');
   document.getElementById('searchInput').focus(); // Keep focus or blur as needed
