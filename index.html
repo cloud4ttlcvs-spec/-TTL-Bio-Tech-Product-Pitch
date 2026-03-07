@@ -2342,8 +2342,39 @@ function closePromoModal() {
   history.back();
 }
 
+function ensurePromoVisibleInList(promoId) {
+  const promo = PROMO_MAP.get(promoId);
+  if (!promo) return;
+
+  const targetStatus = isPromoActive(promo) ? 'active' : 'expired';
+  const targetCats = getPromoCategories(promo);
+  let shouldRender = false;
+
+  if (currentPromoStatus !== targetStatus) {
+    currentPromoStatus = targetStatus;
+    shouldRender = true;
+  }
+
+  if (selectedPromoCats.size > 0) {
+    const hasIntersection = targetCats.some(c => selectedPromoCats.has(c));
+    if (!hasIntersection) {
+      selectedPromoCats.clear();
+      shouldRender = true;
+    }
+  }
+
+  document.getElementById('st-active').classList.toggle('active', currentPromoStatus === 'active');
+  document.getElementById('st-expired').classList.toggle('active', currentPromoStatus === 'expired');
+  updateCatUI();
+
+  if (shouldRender) renderPromotions();
+}
+
 function goToPromoDetail(promoId) {
-  event.stopPropagation();
+  if (typeof event !== 'undefined' && event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  ensurePromoVisibleInList(promoId);
   showPromoView(promoId);
   setTimeout(() => openPromoModal(promoId), 500); 
 }
