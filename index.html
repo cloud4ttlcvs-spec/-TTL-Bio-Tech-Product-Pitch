@@ -246,6 +246,10 @@ body.large-mode .new-badge { font-size: 12px; padding: 4px 10px 4px 8px; }
 
 .p-img-box img { width: 90%; height: 90%; object-fit: contain; mix-blend-mode: multiply; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .p-card.active .p-img-box img { transform: scale(1.15); }
+.p-img-box.is-fallback { cursor: default; }
+.p-img-box.is-fallback .zoom-hint { display: none; }
+.p-img-box img.img-fallback, .r-img.img-fallback { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: normal; }
+.r-img-wrap.img-fallback-wrap, .p-img-box.is-fallback { background: linear-gradient(135deg, #faf7f2, #f2efe8); border-color: #e7dfd2; }
 
 /* Zoom Hint Logic */
 .zoom-hint {
@@ -1012,17 +1016,81 @@ function closeIosPrompt() {
   }, 500);
 }
 
-function forceClearCache() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) {
-        registration.unregister();
-      }
-      window.location.reload(true);
-    });
-  } else {
-    window.location.reload(true);
+async function forceClearCache() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(registration => registration.unregister()));
+    }
+    if ('caches' in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map(key => caches.delete(key)));
+    }
+  } catch (err) {
+    console.warn('forceClearCache failed', err);
   }
+  window.location.reload();
+}
+
+const IMG_RETRY_PARAM = 'img_retry';
+const IMG_FALLBACK_SRC = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">  <defs>    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">      <stop offset="0%" stop-color="#f7f2ea"/>      <stop offset="100%" stop-color="#ece4d6"/>    </linearGradient>  </defs>  <rect width="320" height="320" rx="28" fill="url(#g)"/>  <g fill="none" stroke="#b9ab95" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">    <rect x="74" y="86" width="172" height="148" rx="16"/>    <path d="M96 210l42-46 34 34 28-32 24 26"/>    <circle cx="132" cy="132" r="14" fill="#b9ab95" stroke="none"/>  </g>  <text x="160" y="276" text-anchor="middle" fill="#8c7c67" font-size="24" font-family="Arial, 'Noto Sans TC', sans-serif">圖片暫時無法載入</text></svg>`);
+
+function escapeHtmlAttr(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildRetryImageUrl(src) {
+  const raw = String(src || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, window.location.href);
+    url.searchParams.set(IMG_RETRY_PARAM, Date.now().toString());
+    return url.toString();
+  } catch (err) {
+    const glue = raw.includes('?') ? '&' : '?';
+    return `${raw}${glue}${IMG_RETRY_PARAM}=${Date.now()}`;
+  }
+}
+
+function applyImageFallback(imgEl) {
+  if (!imgEl) return;
+  imgEl.onerror = null;
+  imgEl.classList.add('img-fallback');
+  imgEl.src = IMG_FALLBACK_SRC;
+  const wrap = imgEl.closest('.p-img-box, .r-img-wrap');
+  if (wrap) {
+    wrap.classList.add('img-fallback-wrap');
+    if (wrap.classList.contains('p-img-box')) wrap.classList.add('is-fallback');
+  }
+}
+
+function handleCatalogImageLoad(imgEl) {
+  if (!imgEl) return;
+  imgEl.classList.remove('img-fallback');
+  const wrap = imgEl.closest('.p-img-box, .r-img-wrap');
+  if (wrap) {
+    wrap.classList.remove('img-fallback-wrap');
+    wrap.classList.remove('is-fallback');
+  }
+}
+
+function handleCatalogImageError(imgEl) {
+  if (!imgEl) return;
+  const originalSrc = imgEl.dataset.src || imgEl.getAttribute('src') || '';
+  if (!imgEl.dataset.retryAttempted) {
+    imgEl.dataset.retryAttempted = '1';
+    const retryUrl = buildRetryImageUrl(originalSrc);
+    if (retryUrl) {
+      imgEl.src = retryUrl;
+      return;
+    }
+  }
+  applyImageFallback(imgEl);
 }
 
 const TS = Date.now();
@@ -1396,8 +1464,8 @@ window.onload = function() {
       return;
     }
 
-    if (activeTextSearch && (!state || state.page !== 'text-search')) {
-      restoreFromTextSearch();
+    if (activeSearchTerm && (!state || state.page !== 'search')) {
+      restoreFromSearch();
       return;
     }
 
@@ -1670,7 +1738,8 @@ function renderRankingList(type) {
     div.className = "r-card";
     div.dataset.rank = idx + 1;
     div.onclick = () => jumpToProduct(p.id);
-    let img = p.photo && p.photo.length>5 ? `<img src="${p.photo}" class="r-img">` : `<div style="font-size:10px;color:#ccc">無圖</div>`;
+    const safePhoto = escapeHtmlAttr(p.photo);
+    let img = p.photo && p.photo.length>5 ? `<img src="${safePhoto}" data-src="${safePhoto}" class="r-img" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">` : `<div style="font-size:10px;color:#ccc">無圖</div>`;
     div.innerHTML = `<div class="r-img-wrap"><div class="r-badge">${idx+1}</div>${img}</div><div class="r-name">${p.name}</div>`;
     listEl.appendChild(div);
   });
@@ -1866,7 +1935,8 @@ function productHasTag(product, targetTag) {
 
 let activeTagFilter = '';
 let tagFilterSourceCardId = '';
-let activeTextSearch = '';
+let activeSearchTerm = '';
+let hasSearchHistoryEntry = false;
 
 function reopenProductCard(cardId, scrollIntoView = true) {
   if (!cardId) return;
@@ -1880,9 +1950,23 @@ function reopenProductCard(cardId, scrollIntoView = true) {
   }
 }
 
+function restoreFromSearch() {
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
+  const input = document.getElementById('searchInput');
+  if (input) {
+    input.value = '';
+    input.blur();
+  }
+  renderUI('');
+  const ranking = document.getElementById('ranking-section');
+  if (ranking) ranking.style.display = 'block';
+}
+
 function restoreFromTagFilter(returnCardId) {
   activeTagFilter = '';
-  activeTextSearch = '';
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
   const input = document.getElementById('searchInput');
   if (input) input.value = '';
   renderUI('');
@@ -1893,15 +1977,6 @@ function restoreFromTagFilter(returnCardId) {
   reopenProductCard(reopenId, true);
 }
 
-function restoreFromTextSearch() {
-  activeTextSearch = '';
-  const input = document.getElementById('searchInput');
-  if (input) input.value = '';
-  renderUI('');
-  const ranking = document.getElementById("ranking-section");
-  if (ranking) ranking.style.display = 'block';
-}
-
 function applyTagFilter(e, tag) {
   if (e) {
     e.preventDefault();
@@ -1909,7 +1984,8 @@ function applyTagFilter(e, tag) {
   }
   const sourceCard = e && e.currentTarget ? e.currentTarget.closest('.p-card') : document.querySelector('.p-card.active');
   tagFilterSourceCardId = sourceCard ? sourceCard.id : '';
-  activeTextSearch = '';
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
   activeTagFilter = String(tag || '').trim().replace(/^#/, '');
   const input = document.getElementById('searchInput');
   if (input) input.value = activeTagFilter;
@@ -2011,9 +2087,11 @@ function renderUI(filterText = "") {
 
       let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
       if(p.photo && p.photo.length > 5) {
+        const safePhotoAttr = escapeHtmlAttr(p.photo);
+        const photoJs = JSON.stringify(p.photo);
         imgHtml = `
-          <div class="p-img-box" onclick="onProductImageClick(event, '${p.photo}')">
-          <img src="${p.photo}" loading="lazy">
+          <div class="p-img-box" onclick='onProductImageClick(event, ${photoJs})'>
+          <img src="${safePhotoAttr}" data-src="${safePhotoAttr}" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">
           ${videoHintHtml}
           <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
           </div>
@@ -2060,14 +2138,21 @@ function handleSearch(val) {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
     const keyword = String(val || '').trim();
-    const normalizedKeyword = keyword.toLowerCase();
-    const enteringSearch = !activeTextSearch && !!keyword;
-    activeTextSearch = normalizedKeyword;
-    if (enteringSearch) {
-      history.pushState({page: 'text-search', q: keyword}, document.title);
-    } else if (keyword) {
-      history.replaceState({page: 'text-search', q: keyword}, document.title);
+    const input = document.getElementById('searchInput');
+    if (input && input.value !== keyword) input.value = keyword;
+
+    if (keyword && !hasSearchHistoryEntry) {
+      history.pushState({page: 'search', q: keyword}, document.title);
+      hasSearchHistoryEntry = true;
+    } else if (keyword && hasSearchHistoryEntry && history.state && history.state.page === 'search') {
+      history.replaceState({page: 'search', q: keyword}, document.title);
     }
+
+    if (!keyword) {
+      hasSearchHistoryEntry = false;
+    }
+
+    activeSearchTerm = keyword;
     renderUI(keyword);
     document.getElementById("ranking-section").style.display = keyword ? 'none' : 'block';
   }, 300);
@@ -2076,14 +2161,19 @@ function handleSearch(val) {
 function clearSearch() {
   activeTagFilter = '';
   tagFilterSourceCardId = '';
-  activeTextSearch = '';
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
   document.getElementById('searchInput').value = '';
   handleSearch('');
-  document.getElementById('searchInput').focus(); // Keep focus or blur as needed
+  document.getElementById('searchInput').blur();
 }
 
 function onProductImageClick(e, src) {
-  const card = e.currentTarget.closest('.p-card');
+  const box = e.currentTarget;
+  const img = box ? box.querySelector('img') : null;
+  if (box && box.classList.contains('is-fallback')) return;
+  if (img && img.classList.contains('img-fallback')) return;
+  const card = box.closest('.p-card');
   if (card.classList.contains('active')) {
     e.stopPropagation();
     openLightbox(e, src);
