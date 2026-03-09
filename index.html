@@ -1232,6 +1232,8 @@ function handleCatalogImageError(imgEl) {
 }
 
 const TS = Date.now();
+// 升級用：部署 merged-products-feed 的 GAS 後，把網址貼到這裡；未設定時會自動 fallback 到既有 CSV。
+const MERGED_PRODUCTS_FEED = "https://script.google.com/macros/s/AKfycbzjsviOSuzZY32R5xaI_LzBe11iBSNOPOtloLukUti8idghoWJqiI9AuyaM5NzoBixq/exec"; // 例如：https://script.google.com/macros/s/AKfycb.../exec
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
 const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
@@ -1258,30 +1260,52 @@ async function fetchTextWithRetry(url, timeoutMs = 15000, retries = 2) {
   }
 }
 
-// --- CSV FETCH SMART (Double Cache-Busting + Proxy) ---
+function appendQueryParam(url, key, value) {
+  const joiner = String(url).includes('?') ? '&' : '?';
+  return `${url}${joiner}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
+}
+
+function hasConfiguredMergedFeed() {
+  return /^https?:\/\//i.test(MERGED_PRODUCTS_FEED || '');
+}
+
+// --- FETCH SMART (Double Cache-Busting + Proxy) ---
 const PROXY_PROVIDERS = [
-  { name: "direct", build: (u) => u + "&_bust=" + Date.now() }, 
-  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(u + "&_bust=" + Date.now()) },
-  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u + "&_bust=" + Date.now()) }
+  { name: "direct", build: (u) => appendQueryParam(u, "_bust", Date.now()) }, 
+  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(appendQueryParam(u, "_bust", Date.now())) },
+  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(appendQueryParam(u, "_bust", Date.now())) }
 ];
 
-async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
+async function fetchTextSmart(sourceUrl, { label = "text", required = true, timeoutMs = 15000 } = {}) {
   let lastErr = null;
   for (const p of PROXY_PROVIDERS) {
     const u = p.build(sourceUrl);
     try {
-      // Use retry helper
       const t = await fetchTextWithRetry(u, timeoutMs);
-      if (!t || t.trim().length < 20) throw new Error("empty response");
+      if (!t || t.trim().length < 2) throw new Error("empty response");
       if (looksLikeHtml(t)) throw new Error("html response");
       return t;
     } catch (e) {
       lastErr = e;
-      console.warn(`[CSV] ${label} failed via ${p.name}:`, e);
+      console.warn(`[FETCH] ${label} failed via ${p.name}:`, e);
     }
   }
   if (required) throw (lastErr || new Error("fetch failed"));
   return null;
+}
+
+async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
+  return await fetchTextSmart(sourceUrl, { label, required, timeoutMs });
+}
+
+async function fetchJsonSmart(sourceUrl, { label = "json", required = true, timeoutMs = 15000 } = {}) {
+  const raw = await fetchTextSmart(sourceUrl, { label, required, timeoutMs });
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`[JSON] ${label} parse failed: ${e.message}`);
+  }
 }
 
 function looksLikeHtml(t) {
@@ -1938,6 +1962,84 @@ function parseProductsCsv(csvText) {
   });
 }
 
+function normalizeBool(val) {
+  const s = String(val || '').trim().toUpperCase();
+  return s === 'TRUE' || s === 'YES' || s === '1' || s === 'Y';
+}
+
+function sanitizeItemCode(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+function normalizePitchData(rawPitch = {}, fallbackName = '') {
+  const title = String(rawPitch?.title || rawPitch?.pitch_title || '').trim();
+  const content = String(rawPitch?.content || rawPitch?.pitch_content || '').trim();
+  const tags = String(rawPitch?.tags || '').trim();
+  const isNew = normalizeBool(rawPitch?.isNew ?? rawPitch?.is_new);
+  const name = String(rawPitch?.name || rawPitch?.product_name || fallbackName || '').trim();
+  if (!title && !content && !tags && !name && !isNew) return null;
+  return { title, content, tags, isNew, name };
+}
+
+function normalizeMergedProductItem(raw, idx) {
+  if (!raw) return null;
+  const code = sanitizeItemCode(raw.code || raw.product_code);
+  let name = String(raw.name || raw.product_name || '').trim();
+  if (!code || !name) return null;
+
+  const category = String(raw.category || '').trim();
+  const isGift = normalizeBool(raw.isGift ?? raw.is_gift);
+  const isHiddenPp = normalizeBool(raw.isHiddenPp ?? raw.is_hidden_pp);
+  if (isGift || isHiddenPp) return null;
+  if (name.includes("洗卸潔顏露3入組") || name.includes("甘益守禮盒")) return null;
+  const hiddenSets = ["Set-01", "Set-02", "Set-03"];
+  if (hiddenSets.some(s => code.includes(s))) return null;
+
+  const pitch = normalizePitchData(raw.pitch || {}, name);
+  if (pitch && pitch.name) {
+    name = pitch.name;
+  } else {
+    name = name.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
+  }
+
+  const priceRaw = raw.price ?? raw.list_price ?? 0;
+  const price = Number(String(priceRaw).replace(/,/g, '')) || 0;
+  const photo = String(raw.photo || raw.photos_url || raw['photos url'] || '').trim();
+  const videoUrl = String(raw.videoUrl || raw.video_url || raw.video_link || raw['video link'] || '').trim();
+  const moreLinksRaw = String(raw.moreLinksRaw || raw.more_links || raw.more_links_raw || '').trim();
+  const spec = String(raw.spec || '').trim();
+  return {
+    id: `p-${idx}`,
+    code,
+    name,
+    category,
+    price,
+    spec,
+    photo,
+    videoUrl,
+    moreLinksRaw,
+    pitch,
+    isHiddenPp: false
+  };
+}
+
+function parseMergedProductsFeed(feedData) {
+  PRODUCT_MAP = new Map();
+  PITCH_MAP = new Map();
+  PITCH_COUNTER = new Map();
+  Object.values(SECTIONS).forEach(sec => { sec.items = []; });
+
+  const items = Array.isArray(feedData?.items) ? feedData.items : (Array.isArray(feedData) ? feedData : []);
+  items.forEach((raw, idx) => {
+    const p = normalizeMergedProductItem(raw, idx);
+    if (!p) return;
+    PRODUCT_MAP.set(p.code, mergeProductRecords(PRODUCT_MAP.get(p.code), p));
+    const group = classifyProduct(p.name, p.category);
+    if (SECTIONS[group]) SECTIONS[group].items.push(p);
+    else SECTIONS.other.items.push(p);
+  });
+}
+
 function parsePromoCsv(csvText) {
   PROMO_LIST = [];
   PROMO_MAP = new Map();
@@ -1992,13 +2094,27 @@ async function init() {
     const rankPromise = fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false });
     const promoPromise = fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false });
 
-    const [resProd, resPitch] = await Promise.all([
-      fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
-      fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true })
-    ]);
+    let usedMergedFeed = false;
+    if (hasConfiguredMergedFeed()) {
+      try {
+        const mergedFeed = await fetchJsonSmart(MERGED_PRODUCTS_FEED, { label: 'merged-products', required: true, timeoutMs: 12000 });
+        parseMergedProductsFeed(mergedFeed);
+        usedMergedFeed = true;
+        console.info('[INIT] merged JSON feed loaded');
+      } catch (feedErr) {
+        console.warn('[INIT] merged JSON feed failed, fallback to CSV:', feedErr);
+      }
+    }
 
-    parsePitchCsv(resPitch);
-    parseProductsCsv(resProd);
+    if (!usedMergedFeed) {
+      const [resProd, resPitch] = await Promise.all([
+        fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
+        fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true })
+      ]);
+      parsePitchCsv(resPitch);
+      parseProductsCsv(resProd);
+      console.info('[INIT] CSV fallback loaded');
+    }
 
     renderPromotions();
     refreshCurrentProductView({ chunked: true });
