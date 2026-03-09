@@ -1871,6 +1871,9 @@ function parseProductsCsv(csvText) {
     const code = getVal(row, 'product_code').trim().toUpperCase();
     let originalName = getVal(row, 'product_name').trim();
     const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
+    const isHiddenPp = (getVal(row, 'is_hidden_pp') || getVal(row, 'is_hidden_pp ') || '').toString().trim().toUpperCase() === 'TRUE';
+
+    if (isHiddenPp) return;
 
     let pitchData = null;
     if (PITCH_MAP.has(code)) {
@@ -1901,7 +1904,6 @@ function parseProductsCsv(csvText) {
     const photo = getVal(row, 'photos url');
     const videoUrl = (getVal(row, 'video_url') || getVal(row, 'video link') || getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || "").trim();
     const moreLinksRaw = (getVal(row, 'more_links') || getVal(row, 'more_links_raw') || getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || "").trim();
-    const isHiddenPp = (getVal(row, 'is_hidden_pp') || getVal(row, 'is_hidden_pp ') || '').toString().trim().toUpperCase() === 'TRUE';
 
     const p = {
       id: `p-${idx}`, code: code, name: finalName, category: category,
