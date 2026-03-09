@@ -976,20 +976,50 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 
 <script>
 // --- SPLASH & iOS PROMPT LOGIC ---
-window.addEventListener('load', () => {
-  // Show Error Button after 8 seconds of loading
-  setTimeout(() => {
-    const loader = document.getElementById('loader');
-    if(loader && loader.style.opacity !== '0') {
-       document.getElementById('btn-force-reload').style.display = 'block';
-    }
-  }, 8000);
+const LOADER_HINT_DELAY_MS = 15000;
+let loaderHintTimer = null;
 
+function scheduleDelayedReloadHint() {
+  clearTimeout(loaderHintTimer);
+  const btn = document.getElementById('btn-force-reload');
+  if (btn) btn.style.display = 'none';
+  loaderHintTimer = setTimeout(() => {
+    const loader = document.getElementById('loader');
+    if (loader && loader.style.opacity !== '0' && !loader.dataset.done) {
+      if (btn) btn.style.display = 'block';
+    }
+  }, LOADER_HINT_DELAY_MS);
+}
+
+function clearDelayedReloadHint() {
+  clearTimeout(loaderHintTimer);
+  loaderHintTimer = null;
+  const btn = document.getElementById('btn-force-reload');
+  if (btn) btn.style.display = 'none';
+}
+
+function hideLoader() {
+  clearDelayedReloadHint();
+  const loader = document.getElementById('loader');
+  if (!loader) return;
+  loader.dataset.done = '1';
+  loader.style.opacity = 0;
+  setTimeout(() => {
+    if (loader && loader.parentNode) loader.remove();
+  }, 500);
+}
+
+window.addEventListener('load', () => {
   setTimeout(() => {
     const splash = document.getElementById('splash-screen');
-    if(splash) {
+    if (splash) {
       splash.classList.add('hidden');
-      setTimeout(() => { splash.style.display = 'none'; }, 600);
+      setTimeout(() => {
+        splash.style.display = 'none';
+        scheduleDelayedReloadHint();
+      }, 600);
+    } else {
+      scheduleDelayedReloadHint();
     }
     
     setTimeout(() => {
@@ -1554,149 +1584,179 @@ const getVal = (row, targetKey) => {
   return foundKey ? row[foundKey] : "";
 };
 
-async function init() {
-  try {
-    // 1. Fetch CSVs
-    const [resProd, resPitch, resRank, resPromo] = await Promise.all([
-      fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
-      fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true }),
-      fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false }),
-      fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
-    ]);
 
-    // 2. Parse Pitch
-    Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      const code = getVal(row, 'product_code').trim().toUpperCase();
-      const pitchName = getVal(row, 'product_name').trim(); 
-      const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
-      const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1' || rawHidden === 'Y'); 
+function parsePitchCsv(csvText) {
+  PITCH_MAP = new Map();
+  PITCH_COUNTER = new Map();
+  Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach(row => {
+    const code = getVal(row, 'product_code').trim().toUpperCase();
+    const pitchName = getVal(row, 'product_name').trim();
+    const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
+    const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1' || rawHidden === 'Y');
 
-      if(code) {
-        if (!PITCH_MAP.has(code)) PITCH_MAP.set(code, []);
-        PITCH_MAP.get(code).push({
-          title: getVal(row, 'pitch_title').trim(), 
-          content: getVal(row, 'pitch_content').trim(), 
-          tags: getVal(row, 'tags').trim(),
-          isNew: getVal(row, 'is_new').trim().toUpperCase() === 'TRUE',
-          name: pitchName, 
-          isHidden: isHidden 
-        });
-      }
-    });
-
-    // 3. Parse Products
-    Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
-      const code = getVal(row, 'product_code').trim().toUpperCase();
-      let originalName = getVal(row, 'product_name').trim();
-      const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
-      
-      let pitchData = null;
-      if (PITCH_MAP.has(code)) {
-        const list = PITCH_MAP.get(code);
-        if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
-        const currentIndex = PITCH_COUNTER.get(code);
-        if (currentIndex < list.length) {
-          pitchData = list[currentIndex];
-          PITCH_COUNTER.set(code, currentIndex + 1);
-        }
-      }
-
-      if (pitchData && pitchData.isHidden) return; 
-      if(!code || !originalName || isGift) return;
-
-      if (originalName.includes("洗卸潔顏露3入組") || originalName.includes("甘益守禮盒")) return; 
-      const hiddenSets = ["Set-01", "Set-02", "Set-03"];
-      if (hiddenSets.some(s => code.includes(s))) return;
-
-      let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
-      if (!pitchData || !pitchData.name) {
-          finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
-      }
-
-      const category = getVal(row, 'category').trim();
-      const listPrice = getVal(row, 'list_price') || "0";
-      const spec = getVal(row, 'spec');
-            const photo = getVal(row, 'photos url');
-      // [預設計擴充] 商品影音/更多素材：優先讀 video_url / more_links（向下相容舊欄位 photos url 2 / 3）
-      const videoUrl = (getVal(row, 'video_url') || getVal(row, 'video link') || getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || "").trim();
-      const moreLinksRaw = (getVal(row, 'more_links') || getVal(row, 'more_links_raw') || getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || "").trim();
-
-      const p = {
-        id: `p-${idx}`, code: code, name: finalName, category: category,
-        price: Number(listPrice.replace(/,/g,'')),
-        spec: spec, photo: photo,
-        videoUrl: videoUrl, moreLinksRaw: moreLinksRaw,
-        pitch: pitchData || null
-      };
-
-      PRODUCT_MAP.set(code, p);
-      const group = classifyProduct(p.name, p.category);
-      if(SECTIONS[group]) SECTIONS[group].items.push(p);
-      else SECTIONS.other.items.push(p);
-    });
-
-    // 4. Parse Promo (NEW: Channel Icons)
-    if (resPromo) {
-      Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
-        const id = getVal(row, 'promo_id').trim();
-        if(!id) return;
-        
-        // Parse channels
-        const c1 = getVal(row, 'channel_showroom').trim().toUpperCase();
-        const c2 = getVal(row, 'channel_mart').trim().toUpperCase();
-        const c3 = getVal(row, 'channel_eshop').trim().toUpperCase();
-        const c4 = getVal(row, 'channel_office').trim().toUpperCase();
-        
-        const promo = {
-          id: id,
-          title: getVal(row, 'title') || "未命名活動",
-          content: getVal(row, 'content') || "",
-          img: getVal(row, 'img_url') || "",
-          start: getVal(row, 'start_date'),
-          end: getVal(row, 'end_date'),
-          color: getVal(row, 'bg_color') || "#fff",
-          relatedRaw: getVal(row, 'related_codes') || "",
-          // Channel Flags (TRUE/YES/1)
-          ch: {
-            show: (c1==='TRUE'||c1==='YES'||c1==='1'),
-            mart: (c2==='TRUE'||c2==='YES'||c2==='1'),
-            eshop: (c3==='TRUE'||c3==='YES'||c3==='1'),
-            office: (c4==='TRUE'||c4==='YES'||c4==='1')
-          }
-        };
-        
-        PROMO_LIST.push(promo);
-        PROMO_MAP.set(id, promo);
-
-        const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
-        tokens.forEach(token => {
-          if (PRODUCT_MAP.has(token)) {
-            addPromoToProduct(token, promo);
-          } else {
-            const matchedCodes = findProductsByKeyword(token);
-            if (matchedCodes.length > 0) {
-              matchedCodes.forEach(c => addPromoToProduct(c, promo));
-            }
-          }
-        });
+    if (code) {
+      if (!PITCH_MAP.has(code)) PITCH_MAP.set(code, []);
+      PITCH_MAP.get(code).push({
+        title: getVal(row, 'pitch_title').trim(),
+        content: getVal(row, 'pitch_content').trim(),
+        tags: getVal(row, 'tags').trim(),
+        isNew: getVal(row, 'is_new').trim().toUpperCase() === 'TRUE',
+        name: pitchName,
+        isHidden: isHidden
       });
     }
+  });
+}
 
-    // 5. Parse Rank
-    if (resRank) processRankings(resRank);
-    
-    // 6. Render
+function parseProductsCsv(csvText) {
+  PRODUCT_MAP = new Map();
+  Object.values(SECTIONS).forEach(sec => { sec.items = []; });
+  PITCH_COUNTER = new Map();
+
+  Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
+    const code = getVal(row, 'product_code').trim().toUpperCase();
+    let originalName = getVal(row, 'product_name').trim();
+    const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
+
+    let pitchData = null;
+    if (PITCH_MAP.has(code)) {
+      const list = PITCH_MAP.get(code);
+      if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
+      const currentIndex = PITCH_COUNTER.get(code);
+      if (currentIndex < list.length) {
+        pitchData = list[currentIndex];
+        PITCH_COUNTER.set(code, currentIndex + 1);
+      }
+    }
+
+    if (pitchData && pitchData.isHidden) return;
+    if (!code || !originalName || isGift) return;
+
+    if (originalName.includes("洗卸潔顏露3入組") || originalName.includes("甘益守禮盒")) return;
+    const hiddenSets = ["Set-01", "Set-02", "Set-03"];
+    if (hiddenSets.some(s => code.includes(s))) return;
+
+    let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
+    if (!pitchData || !pitchData.name) {
+      finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
+    }
+
+    const category = getVal(row, 'category').trim();
+    const listPrice = getVal(row, 'list_price') || "0";
+    const spec = getVal(row, 'spec');
+    const photo = getVal(row, 'photos url');
+    const videoUrl = (getVal(row, 'video_url') || getVal(row, 'video link') || getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || "").trim();
+    const moreLinksRaw = (getVal(row, 'more_links') || getVal(row, 'more_links_raw') || getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || "").trim();
+
+    const p = {
+      id: `p-${idx}`, code: code, name: finalName, category: category,
+      price: Number(listPrice.replace(/,/g,'')),
+      spec: spec, photo: photo,
+      videoUrl: videoUrl, moreLinksRaw: moreLinksRaw,
+      pitch: pitchData || null
+    };
+
+    PRODUCT_MAP.set(code, p);
+    const group = classifyProduct(p.name, p.category);
+    if (SECTIONS[group]) SECTIONS[group].items.push(p);
+    else SECTIONS.other.items.push(p);
+  });
+}
+
+function parsePromoCsv(csvText) {
+  PROMO_LIST = [];
+  PROMO_MAP = new Map();
+  PRODUCT_TO_PROMO_MAP = new Map();
+  if (!csvText) return;
+
+  Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach(row => {
+    const id = getVal(row, 'promo_id').trim();
+    if (!id) return;
+
+    const c1 = getVal(row, 'channel_showroom').trim().toUpperCase();
+    const c2 = getVal(row, 'channel_mart').trim().toUpperCase();
+    const c3 = getVal(row, 'channel_eshop').trim().toUpperCase();
+    const c4 = getVal(row, 'channel_office').trim().toUpperCase();
+
+    const promo = {
+      id: id,
+      title: getVal(row, 'title') || "未命名活動",
+      content: getVal(row, 'content') || "",
+      img: getVal(row, 'img_url') || "",
+      start: getVal(row, 'start_date'),
+      end: getVal(row, 'end_date'),
+      color: getVal(row, 'bg_color') || "#fff",
+      relatedRaw: getVal(row, 'related_codes') || "",
+      ch: {
+        show: (c1==='TRUE'||c1==='YES'||c1==='1'),
+        mart: (c2==='TRUE'||c2==='YES'||c2==='1'),
+        eshop: (c3==='TRUE'||c3==='YES'||c3==='1'),
+        office: (c4==='TRUE'||c4==='YES'||c4==='1')
+      }
+    };
+
+    PROMO_LIST.push(promo);
+    PROMO_MAP.set(id, promo);
+
+    const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+    tokens.forEach(token => {
+      if (PRODUCT_MAP.has(token)) {
+        addPromoToProduct(token, promo);
+      } else {
+        const matchedCodes = findProductsByKeyword(token);
+        if (matchedCodes.length > 0) {
+          matchedCodes.forEach(c => addPromoToProduct(c, promo));
+        }
+      }
+    });
+  });
+}
+
+async function init() {
+  try {
+    const rankPromise = fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false });
+    const promoPromise = fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false });
+
+    const [resProd, resPitch] = await Promise.all([
+      fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
+      fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true })
+    ]);
+
+    parsePitchCsv(resPitch);
+    parseProductsCsv(resProd);
+
     renderPromotions();
-    renderUI();
-    
-    // [V4.3 FIX] Force hiding promo container after everything is rendered
+    refreshCurrentProductView({ chunked: true });
     showMainView(false);
+    hideLoader();
 
-    document.getElementById("loader").style.opacity = 0;
-    setTimeout(() => document.getElementById("loader").remove(), 500);
+    Promise.allSettled([rankPromise, promoPromise]).then(results => {
+      const [rankResult, promoResult] = results;
+      let needsProductRefresh = false;
 
-  } catch(e) {
-    alert("讀取資料失敗，請稍後重試"); console.error(e);
+      if (promoResult.status === 'fulfilled' && promoResult.value) {
+        parsePromoCsv(promoResult.value);
+        renderPromotions();
+        needsProductRefresh = true;
+      } else if (promoResult.status === 'rejected') {
+        console.warn('[PROMO] background load failed:', promoResult.reason);
+      }
+
+      if (rankResult.status === 'fulfilled' && rankResult.value) {
+        processRankings(rankResult.value);
+      } else if (rankResult.status === 'rejected') {
+        console.warn('[RANK] background load failed:', rankResult.reason);
+      }
+
+      if (needsProductRefresh) {
+        refreshCurrentProductView();
+      } else {
+        updateRankingVisibility(getCurrentRenderFilterText());
+      }
+    });
+  } catch (e) {
+    alert("讀取資料失敗，請稍後重試");
+    console.error(e);
   }
 }
 
@@ -1937,6 +1997,23 @@ let activeTagFilter = '';
 let tagFilterSourceCardId = '';
 let activeSearchTerm = '';
 let hasSearchHistoryEntry = false;
+let renderJobToken = 0;
+
+function getCurrentRenderFilterText() {
+  return activeTagFilter || activeSearchTerm || '';
+}
+
+function updateRankingVisibility(filterText = '') {
+  const ranking = document.getElementById('ranking-section');
+  if (!ranking) return;
+  ranking.style.display = filterText ? 'none' : (RANKINGS.all.length > 0 ? 'block' : 'none');
+}
+
+function refreshCurrentProductView({ chunked = false } = {}) {
+  const filterText = getCurrentRenderFilterText();
+  renderUI(filterText, { chunked });
+  updateRankingVisibility(filterText);
+}
 
 function reopenProductCard(cardId, scrollIntoView = true) {
   if (!cardId) return;
@@ -1959,8 +2036,7 @@ function restoreFromSearch() {
     input.blur();
   }
   renderUI('');
-  const ranking = document.getElementById('ranking-section');
-  if (ranking) ranking.style.display = 'block';
+  updateRankingVisibility('');
 }
 
 function restoreFromTagFilter(returnCardId) {
@@ -1991,35 +2067,136 @@ function applyTagFilter(e, tag) {
   if (input) input.value = activeTagFilter;
   history.pushState({page: 'tag-filter', tag: activeTagFilter, returnCardId: tagFilterSourceCardId}, document.title);
   renderUI(activeTagFilter);
-  const ranking = document.getElementById("ranking-section");
-  if (ranking) ranking.style.display = activeTagFilter ? 'none' : 'block';
+  updateRankingVisibility(activeTagFilter);
   const main = document.getElementById('main-container');
   if (main) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function renderUI(filterText = "") {
+function buildProductCard(p, filterText, activeTagNorm) {
+  const displayName = highlightText(p.name, filterText);
+  let detailContent = "", shareBtnHtml = "";
+  const _vUrl = (p.videoUrl || '').trim();
+  const _moreRaw = (p.moreLinksRaw || '').trim();
+  const _hasVideo = _vUrl.length > 5;
+  const _hasMore = _moreRaw.length > 3;
+  const _sid = safeDomId(p.code);
+  const _isSeen = _hasVideo ? isVideoSeen(p.code, _vUrl) : true;
+  const videoHintHtml = _hasVideo ? `<div class="video-hint ${_isSeen ? 'seen' : 'new'}" id="vh-${_sid}"><span class="material-icons-round">play_arrow</span></div>` : ``;
+  const playBtnHtml = _hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : ``;
+  const moreBtnHtml = _hasMore ? `<div class="btn-media btn-more" id="btn-more-${_sid}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ``;
+
+  let stickerHtml = "";
+  if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
+    const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
+    promos.forEach(pr => {
+      if (isPromoActive(pr)) {
+        stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+      }
+    });
+  }
+
+  if (p.pitch) {
+    let tagsHtml = "";
+    if (p.pitch.tags) {
+      tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
+        const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
+        return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
+      }).join('') + `</div>`;
+    }
+    detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlightText(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
+
+    const shareText = `【 ✨ 產品推薦 】
+🌿 ${p.name}
+-------------------
+💬 主打：${p.pitch.title || ''}
+📝 特色：${p.pitch.content || ''}
+💰 優惠價：$${p.price.toLocaleString()}
+${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}
+-------------------
+(台酒生技)`;
+    shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
+  } else {
+    detailContent = `<div class="no-data">尚無詳細資料</div>`;
+  }
+
+  let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
+  if (p.photo && p.photo.length > 5) {
+    const safePhotoAttr = escapeHtmlAttr(p.photo);
+    const photoJs = JSON.stringify(p.photo);
+    imgHtml = `
+      <div class="p-img-box" onclick='onProductImageClick(event, ${photoJs})'>
+      <img src="${safePhotoAttr}" data-src="${safePhotoAttr}" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">
+      ${videoHintHtml}
+      <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
+      </div>
+    `;
+  }
+
+  let newBadgeHtml = "";
+  if (p.pitch && p.pitch.isNew) {
+    newBadgeHtml = `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`;
+  }
+
+  const card = document.createElement("div");
+  card.className = "p-card";
+  card.id = p.id;
+  card.onclick = () => toggleAccordion(card);
+
+  card.innerHTML = `
+    ${newBadgeHtml}
+    <div class="p-header">
+      ${imgHtml}
+      <div class="p-basic-info">
+        <div class="p-code">${highlightText(p.code, filterText)}</div>
+        <div class="p-name">${displayName}${stickerHtml}</div>
+        <div class="p-spec">${p.spec || ''}</div>
+        <div class="p-price-row"><div class="p-price">${p.price.toLocaleString()}</div><span class="material-icons-round p-arrow">expand_more</span></div>
+      </div>
+    </div>
+    <div class="p-detail"><div class="p-detail-inner">${detailContent}${(moreBtnHtml||playBtnHtml||shareBtnHtml)?`<div class="p-actions">${playBtnHtml}${moreBtnHtml}${shareBtnHtml}</div>`:''}</div></div>
+  `;
+
+  return card;
+}
+
+function appendProductCardsBatch(grid, items, startIndex, batchSize, filterText, activeTagNorm) {
+  const frag = document.createDocumentFragment();
+  const endIndex = Math.min(startIndex + batchSize, items.length);
+  for (let i = startIndex; i < endIndex; i++) {
+    frag.appendChild(buildProductCard(items[i], filterText, activeTagNorm));
+  }
+  grid.appendChild(frag);
+  return endIndex;
+}
+
+function highlightText(text, term) {
+  if (!term) return text;
+  const re = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+  return String(text).replace(re, '<mark class="highlight">$1</mark>');
+}
+
+function renderUI(filterText = "", options = {}) {
+  const { chunked = false, firstBatch = 12, chunkSize = 12 } = options || {};
+  const renderToken = ++renderJobToken;
   const container = document.getElementById("main-container");
   const nav = document.getElementById("topNav");
   const activeTagNorm = normalizeTag(activeTagFilter);
+  const sectionJobs = [];
+
   container.querySelectorAll('.cat-section').forEach(e => e.remove());
-  if(!filterText) nav.innerHTML = ""; 
+  if (!filterText) nav.innerHTML = "";
 
   document.getElementById('search-clear').style.display = filterText ? 'block' : 'none';
 
   const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
-  const highlight = (text, term) => {
-    if(!term) return text;
-    const re = new RegExp(`(${escapeRegExp(term)})`, 'gi');
-    return String(text).replace(re, '<mark class="highlight">$1</mark>');
-  };
 
   order.forEach(key => {
     const secData = SECTIONS[key];
-    if(secData.items.length === 0) return;
+    if (secData.items.length === 0) return;
 
     const filteredItems = secData.items.filter(p => {
-      if(activeTagNorm) return productHasTag(p, activeTagNorm);
-      if(!filterText) return true;
+      if (activeTagNorm) return productHasTag(p, activeTagNorm);
+      if (!filterText) return true;
       const term = filterText.toLowerCase();
       const pitchTitle = String(p?.pitch?.title || '').toLowerCase();
       const pitchTags = String(p?.pitch?.tags || '').toLowerCase();
@@ -2027,9 +2204,9 @@ function renderUI(filterText = "") {
              pitchTitle.includes(term) || pitchTags.includes(term);
     });
 
-    if(filteredItems.length === 0) return; 
+    if (filteredItems.length === 0) return;
 
-    if(!filterText) {
+    if (!filterText) {
       const pill = document.createElement("div");
       pill.className = "nav-pill";
       pill.innerHTML = `<span class="material-icons-round" style="font-size:14px">${secData.icon}</span> ${secData.title}`;
@@ -2044,91 +2221,57 @@ function renderUI(filterText = "") {
 
     const grid = document.createElement("div");
     grid.className = "grid-layout";
-
-    filteredItems.forEach(p => {
-      const displayName = highlight(p.name, filterText);
-      let detailContent = "", shareBtnHtml = "";
-      // [預設計擴充] 商品影音/更多素材：跟著商品走（資料來自 Products 的 videoUrl / moreLinksRaw）
-      const _vUrl = (p.videoUrl || '').trim();
-      const _moreRaw = (p.moreLinksRaw || '').trim();
-      const _hasVideo = _vUrl.length > 5;
-      const _hasMore = _moreRaw.length > 3;
-      const _sid = safeDomId(p.code);
-      const _isSeen = _hasVideo ? isVideoSeen(p.code, _vUrl) : true;
-      const videoHintHtml = _hasVideo ? `<div class="video-hint ${_isSeen ? 'seen' : 'new'}" id="vh-${_sid}"><span class="material-icons-round">play_arrow</span></div>` : ``;
-      const playBtnHtml = _hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : ``;
-      const moreBtnHtml = _hasMore ? `<div class="btn-media btn-more" id="btn-more-${_sid}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ``;
-      
-      let stickerHtml = "";
-      if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
-        const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
-        promos.forEach(pr => {
-          if(isPromoActive(pr)) {
-            stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
-          }
-        });
-      }
-      
-      if (p.pitch) {
-        let tagsHtml = "";
-        if(p.pitch.tags) {
-          tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
-            const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
-            return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlight(tag, filterText)}</span>`;
-          }).join('') + `</div>`;
-        }
-        detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlight(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
-        
-        const shareText = `【 ✨ 產品推薦 】\n🌿 ${p.name}\n-------------------\n💬 主打：${p.pitch.title || ''}\n📝 特色：${p.pitch.content || ''}\n💰 優惠價：$${p.price.toLocaleString()}\n${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}\n-------------------\n(台酒生技)`;
-        shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
-      } else {
-        detailContent = `<div class="no-data">尚無詳細資料</div>`;
-      }
-
-      let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
-      if(p.photo && p.photo.length > 5) {
-        const safePhotoAttr = escapeHtmlAttr(p.photo);
-        const photoJs = JSON.stringify(p.photo);
-        imgHtml = `
-          <div class="p-img-box" onclick='onProductImageClick(event, ${photoJs})'>
-          <img src="${safePhotoAttr}" data-src="${safePhotoAttr}" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">
-          ${videoHintHtml}
-          <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
-          </div>
-        `;
-      }
-      
-      let newBadgeHtml = "";
-      if(p.pitch && p.pitch.isNew) {
-        newBadgeHtml = `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`;
-      }
-
-      const card = document.createElement("div");
-      card.className = "p-card";
-      card.id = p.id; 
-      card.onclick = (e) => toggleAccordion(card);
-      
-      card.innerHTML = `
-        ${newBadgeHtml}
-        <div class="p-header">
-          ${imgHtml}
-          <div class="p-basic-info">
-            <div class="p-code">${highlight(p.code, filterText)}</div>
-            <div class="p-name">${displayName}${stickerHtml}</div>
-            <div class="p-spec">${p.spec || ''}</div>
-            <div class="p-price-row"><div class="p-price">${p.price.toLocaleString()}</div><span class="material-icons-round p-arrow">expand_more</span></div>
-          </div>
-        </div>
-        <div class="p-detail"><div class="p-detail-inner">${detailContent}${(moreBtnHtml||playBtnHtml||shareBtnHtml)?`<div class="p-actions">${playBtnHtml}${moreBtnHtml}${shareBtnHtml}</div>`:''}</div></div>
-      `;
-      grid.appendChild(card);
-    });
     section.appendChild(grid);
     container.appendChild(section);
+    sectionJobs.push({ grid, items: filteredItems });
   });
-  
-  if(!filterText && nav.children.length > 0) nav.children[0].classList.add('active');
+
+  if (!filterText && nav.children.length > 0) nav.children[0].classList.add('active');
   setupScrollSpy();
+
+  if (!chunked) {
+    sectionJobs.forEach(job => {
+      appendProductCardsBatch(job.grid, job.items, 0, job.items.length, filterText, activeTagNorm);
+    });
+    if (renderToken === renderJobToken) setupScrollSpy();
+    return;
+  }
+
+  const queue = [];
+  sectionJobs.forEach(job => {
+    const nextIndex = appendProductCardsBatch(job.grid, job.items, 0, Math.min(firstBatch, job.items.length), filterText, activeTagNorm);
+    if (nextIndex < job.items.length) {
+      queue.push({ grid: job.grid, items: job.items, index: nextIndex });
+    }
+  });
+
+  if (!queue.length) {
+    if (renderToken === renderJobToken) setupScrollSpy();
+    return;
+  }
+
+  const pump = () => {
+    if (renderToken !== renderJobToken) return;
+
+    let remainingBudget = chunkSize;
+    while (queue.length && remainingBudget > 0) {
+      const job = queue.shift();
+      const nextIndex = appendProductCardsBatch(job.grid, job.items, job.index, remainingBudget, filterText, activeTagNorm);
+      remainingBudget -= (nextIndex - job.index);
+      if (nextIndex < job.items.length) {
+        job.index = nextIndex;
+        queue.push(job);
+      }
+    }
+
+    if (queue.length) {
+      requestAnimationFrame(pump);
+    } else if (renderToken === renderJobToken) {
+      setupScrollSpy();
+    }
+  };
+
+  requestAnimationFrame(pump);
 }
 
 let searchTimeout;
@@ -2154,7 +2297,7 @@ function handleSearch(val) {
 
     activeSearchTerm = keyword;
     renderUI(keyword);
-    document.getElementById("ranking-section").style.display = keyword ? 'none' : 'block';
+    updateRankingVisibility(keyword);
   }, 300);
 }
 
