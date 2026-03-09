@@ -1375,12 +1375,29 @@ function escapeHtml(s) {
 
 function normalizeUrl(u) {
   if (!u) return '';
-  let s = u.trim();
+  let s = String(u);
+  s = s
+    .replace(/[\u200B-\u200D\uFEFF\u2060]/g, '')
+    .replace(/[\u00A0\u202F\u3000]/g, ' ')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/&amp;/gi, '&')
+    .trim();
+  if (!s) return '';
+
+  // Remove wrapper quotes / brackets often introduced by copy-paste or sheet formatting.
+  s = s
+    .replace(/^["'`“”‘’「」『』‹›«»<>《》【】〔〕（）()\[\]]+/, '')
+    .replace(/["'`“”‘’「」『』‹›«»<>《》【】〔〕（）()\[\]]+$/, '')
+    .trim();
+
+  // Pasted URLs occasionally include stray spaces between protocol characters or inside the URL.
+  s = s.replace(/^h\s*t\s*t\s*p\s*s?\s*:\s*\/\s*\//i, m => m.replace(/\s+/g, ''));
+  s = s.replace(/\s+/g, '').trim();
+
   if (!s) return '';
   if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
   return s;
 }
-
 function escapeAttr(s) {
   return escapeHtml(s).replace(/`/g, '&#96;');
 }
