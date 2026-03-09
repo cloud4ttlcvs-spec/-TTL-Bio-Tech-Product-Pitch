@@ -427,6 +427,87 @@ body.large-mode .ms-label{ font-size:16px; }
 .ms-empty{ text-align:center; padding:24px 10px; color:#90a4ae; }
 body.no-scroll{ overflow:hidden; }
 
+/* Product Video Modal */
+#video-modal{
+  position:fixed; inset:0; z-index:12100;
+  background:rgba(0,0,0,0.72); backdrop-filter:blur(6px);
+  opacity:0; pointer-events:none; transition:opacity 0.25s ease;
+  display:flex; justify-content:center; align-items:center;
+  padding:16px;
+}
+#video-modal.open{ opacity:1; pointer-events:auto; }
+.vm-panel{
+  width:min(100%, 780px);
+  max-height:min(88vh, 920px);
+  background:#fff; border-radius:18px;
+  box-shadow:0 18px 56px rgba(0,0,0,0.38);
+  overflow:hidden;
+  display:flex; flex-direction:column;
+  transform:translateY(12px) scale(.98);
+  transition:transform .25s ease;
+}
+#video-modal.open .vm-panel{ transform:translateY(0) scale(1); }
+.vm-head{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+  padding:14px 16px; border-bottom:1px solid #eef2f4;
+}
+.vm-title-wrap{ min-width:0; }
+.vm-title{
+  font-size:15px; font-weight:900; color:#263238;
+  display:flex; align-items:center; gap:6px; line-height:1.4;
+}
+.vm-sub{
+  margin-top:4px; font-size:12px; color:#78909c;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+body.large-mode .vm-title{ font-size:18px; }
+body.large-mode .vm-sub{ font-size:14px; }
+.vm-actions{
+  display:flex; align-items:center; gap:8px; flex-shrink:0;
+}
+.vm-action{
+  border:none; border-radius:999px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 12px; font-size:12px; font-weight:800;
+  background:#eceff1; color:#455a64;
+}
+.vm-action:active{ transform:scale(.97); }
+.vm-action.primary{
+  background:linear-gradient(135deg,#ffe082,#ffcc80);
+  color:#4e342e;
+}
+body.large-mode .vm-action{ font-size:14px; padding:10px 14px; }
+.vm-close{
+  width:34px; height:34px; border:none; border-radius:50%;
+  background:#eceff1; color:#546e7a; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+body.large-mode .vm-close{ width:44px; height:44px; }
+.vm-body{
+  padding:14px; overflow:auto; -webkit-overflow-scrolling:touch;
+}
+.vm-stage{
+  background:#000; border-radius:16px; overflow:hidden;
+  box-shadow:0 8px 20px rgba(0,0,0,0.16);
+}
+.vm-ratio{
+  position:relative; width:100%; padding-top:56.25%;
+}
+.vm-ratio > iframe,
+.vm-ratio > video,
+.vm-ratio > .vm-fallback{
+  position:absolute; inset:0; width:100%; height:100%;
+}
+.vm-ratio > iframe,
+.vm-ratio > video{
+  border:0; display:block; background:#000;
+}
+.vm-ratio > video{ object-fit:contain; }
+.vm-note{
+  padding:10px 4px 0; font-size:12px; color:#78909c; line-height:1.6;
+}
+body.large-mode .vm-note{ font-size:14px; }
+
 /* --- PROMO VIEW STYLES (V5.0 Multi-Filter) --- */
 .promo-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -952,6 +1033,33 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   </div>
 </div>
 
+<div id="video-modal" onclick="closeVideoModal()">
+  <div class="vm-panel" onclick="event.stopPropagation()">
+    <div class="vm-head">
+      <div class="vm-title-wrap">
+        <div class="vm-title">
+          <span class="material-icons-round" style="font-size:18px;color:#546e7a">smart_display</span>
+          <span id="vm-title">商品影片</span>
+        </div>
+        <div class="vm-sub" id="vm-subtitle"></div>
+      </div>
+      <div class="vm-actions">
+        <button class="vm-action primary" id="vm-external-btn" onclick="openCurrentVideoExternally(event)">
+          <span class="material-icons-round" style="font-size:18px">open_in_new</span>
+          外部開啟
+        </button>
+        <button class="vm-close" onclick="closeVideoModal()">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="vm-body">
+      <div class="vm-stage" id="vm-player"></div>
+      <div class="vm-note" id="vm-note"></div>
+    </div>
+  </div>
+</div>
+
 <div id="exit-modal">
   <div class="exit-card">
     <span class="material-icons-round exit-icon">exit_to_app</span>
@@ -1273,6 +1381,93 @@ function normalizeUrl(u) {
   return s;
 }
 
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/`/g, '&#96;');
+}
+
+function chooseBetterText(primary, secondary) {
+  const a = (primary || '').toString().trim();
+  const b = (secondary || '').toString().trim();
+  if (a && !b) return a;
+  if (b && !a) return b;
+  return a || b || '';
+}
+
+function scoreProductRecord(p) {
+  if (!p) return -999;
+  let score = 0;
+  if (p.pitch) score += 4;
+  if (p.videoUrl) score += 3;
+  if (p.moreLinksRaw) score += 2;
+  if (p.photo) score += 1;
+  if (p.name) score += 1;
+  if (p.spec) score += 1;
+  if (p.category && /加價購/i.test(p.category)) score -= 3;
+  if (p.isHiddenPp) score -= 2;
+  return score;
+}
+
+function mergeProductRecords(existing, incoming) {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  const existingScore = scoreProductRecord(existing);
+  const incomingScore = scoreProductRecord(incoming);
+  const winner = incomingScore > existingScore ? incoming : existing;
+  const loser = winner === incoming ? existing : incoming;
+  return {
+    ...winner,
+    id: chooseBetterText(winner.id, loser.id),
+    code: chooseBetterText(winner.code, loser.code),
+    name: chooseBetterText(winner.name, loser.name),
+    category: chooseBetterText(winner.category, loser.category),
+    spec: chooseBetterText(winner.spec, loser.spec),
+    photo: chooseBetterText(winner.photo, loser.photo),
+    videoUrl: chooseBetterText(winner.videoUrl, loser.videoUrl),
+    moreLinksRaw: chooseBetterText(winner.moreLinksRaw, loser.moreLinksRaw),
+    pitch: winner.pitch || loser.pitch || null,
+    isHiddenPp: Boolean(winner.isHiddenPp || loser.isHiddenPp),
+    price: Number.isFinite(winner.price) && winner.price > 0 ? winner.price : loser.price
+  };
+}
+
+function getYouTubeVideoId(url) {
+  const u = normalizeUrl(url);
+  if (!u) return '';
+  try {
+    const parsed = new URL(u);
+    const host = (parsed.hostname || '').toLowerCase();
+    if (host === 'youtu.be') {
+      return (parsed.pathname || '').split('/').filter(Boolean)[0] || '';
+    }
+    if (host.includes('youtube.com')) {
+      if (parsed.searchParams.get('v')) return parsed.searchParams.get('v');
+      const parts = (parsed.pathname || '').split('/').filter(Boolean);
+      const idx = parts.findIndex(part => part === 'embed' || part === 'shorts' || part === 'live');
+      if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+    }
+  } catch(e) {}
+  return '';
+}
+
+function getInlineVideoPayload(url) {
+  const u = normalizeUrl(url);
+  if (!u) return null;
+  const ytId = getYouTubeVideoId(u);
+  if (ytId) {
+    return {
+      kind: 'youtube',
+      embedUrl: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(ytId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
+    };
+  }
+  if (/\.(mp4|m4v|mov|webm)(\?|#|$)/i.test(u)) {
+    return { kind: 'file', src: u, mime: 'video/mp4' };
+  }
+  if (/\.m3u8(\?|#|$)/i.test(u)) {
+    return { kind: 'file', src: u, mime: 'application/x-mpegURL' };
+  }
+  return null;
+}
+
 function inferLinkType(url) {
   const u = (url || '').toLowerCase();
   if (u.includes('youtu.be') || u.includes('youtube.com')) return 'yt';
@@ -1342,6 +1537,54 @@ function openExternalLink(e, url) {
 }
 
 let CURRENT_MEDIA_CODE = null;
+let CURRENT_VIDEO_CODE = null;
+let CURRENT_VIDEO_URL = '';
+
+function openVideoModal(code, productName, rawUrl, payload) {
+  const modal = document.getElementById('video-modal');
+  const titleEl = document.getElementById('vm-title');
+  const subtitleEl = document.getElementById('vm-subtitle');
+  const playerEl = document.getElementById('vm-player');
+  const noteEl = document.getElementById('vm-note');
+  if (!modal || !titleEl || !subtitleEl || !playerEl || !noteEl) return false;
+
+  CURRENT_VIDEO_CODE = code || '';
+  CURRENT_VIDEO_URL = normalizeUrl(rawUrl);
+  titleEl.textContent = '商品影片';
+  subtitleEl.textContent = productName ? `商品：${productName}` : (code || '');
+  noteEl.textContent = '站內播放可直接關閉回到原商品；若偏好使用 YouTube / 外部播放器，也可點右上角外部開啟。';
+
+  if (payload.kind === 'youtube') {
+    playerEl.innerHTML = `<div class="vm-ratio"><iframe src="${escapeAttr(payload.embedUrl)}" title="商品影片" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+  } else if (payload.kind === 'file') {
+    const mimeAttr = payload.mime ? ` type="${escapeAttr(payload.mime)}"` : '';
+    playerEl.innerHTML = `<div class="vm-ratio"><video controls playsinline webkit-playsinline preload="metadata" src="${escapeAttr(payload.src)}"${mimeAttr}></video></div>`;
+  } else {
+    return false;
+  }
+
+  document.body.classList.add('no-scroll');
+  modal.classList.add('open');
+  history.pushState({modal: 'video-modal', code: code}, document.title);
+  return true;
+}
+
+function closeVideoModal(pushBack = true) {
+  if (pushBack) { history.back(); return; }
+  CURRENT_VIDEO_CODE = null;
+  CURRENT_VIDEO_URL = '';
+  const modal = document.getElementById('video-modal');
+  const playerEl = document.getElementById('vm-player');
+  if (playerEl) playerEl.innerHTML = '';
+  if (modal) modal.classList.remove('open');
+  document.body.classList.remove('no-scroll');
+}
+
+function openCurrentVideoExternally(e) {
+  if (e) e.stopPropagation();
+  if (!CURRENT_VIDEO_URL) return;
+  openInNewTab(CURRENT_VIDEO_URL);
+}
 
 function openProductVideo(e, code) {
   if (e) e.stopPropagation();
@@ -1353,15 +1596,20 @@ function openProductVideo(e, code) {
   // Mark as seen (only if the video_url equals last_seen then it becomes "seen/grey")
   markVideoSeen(code, p.videoUrl);
 
-  // UX: open in new tab, keep current modal state
+  const inlinePayload = getInlineVideoPayload(url);
+  if (inlinePayload) {
+    openVideoModal(code, p.name || code, url, inlinePayload);
+    return;
+  }
+
+  // Fallback: external open for unsupported providers/pages
   openInNewTab(url);
 
-  // light feedback
   const toast = document.getElementById("toast");
   if (toast) {
-    toast.innerHTML = `<span class="material-icons-round">open_in_new</span> 已於新分頁開啟影片`;
+    toast.innerHTML = `<span class="material-icons-round">open_in_new</span> 已於外部開啟影片`;
     toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2000);
+    setTimeout(() => toast.classList.remove("show"), 2200);
   }
 }
 
@@ -1468,6 +1716,12 @@ window.onload = function() {
     const lb = document.getElementById("lightbox");
     if (lb.classList.contains("open") && (!state || state.modal !== 'lightbox')) {
       lb.classList.remove("open");
+      return;
+    }
+
+    const vm = document.getElementById("video-modal");
+    if (vm && vm.classList.contains("open") && (!state || state.modal !== 'video-modal')) {
+      closeVideoModal(false);
       return;
     }
 
@@ -1647,16 +1901,18 @@ function parseProductsCsv(csvText) {
     const photo = getVal(row, 'photos url');
     const videoUrl = (getVal(row, 'video_url') || getVal(row, 'video link') || getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || "").trim();
     const moreLinksRaw = (getVal(row, 'more_links') || getVal(row, 'more_links_raw') || getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || "").trim();
+    const isHiddenPp = (getVal(row, 'is_hidden_pp') || getVal(row, 'is_hidden_pp ') || '').toString().trim().toUpperCase() === 'TRUE';
 
     const p = {
       id: `p-${idx}`, code: code, name: finalName, category: category,
       price: Number(listPrice.replace(/,/g,'')),
       spec: spec, photo: photo,
       videoUrl: videoUrl, moreLinksRaw: moreLinksRaw,
-      pitch: pitchData || null
+      pitch: pitchData || null,
+      isHiddenPp: isHiddenPp
     };
 
-    PRODUCT_MAP.set(code, p);
+    PRODUCT_MAP.set(code, mergeProductRecords(PRODUCT_MAP.get(code), p));
     const group = classifyProduct(p.name, p.category);
     if (SECTIONS[group]) SECTIONS[group].items.push(p);
     else SECTIONS.other.items.push(p);
