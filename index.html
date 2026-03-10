@@ -28,7 +28,7 @@
   --highlight-color: #ffeb3b;
   --highlight-text: #d81b60;
   --sticky-offset: 185px; 
-  --promo-color: #EC407A;
+  --promo-color: #ff9800;
   --new-tag-color: #ff5252;
   
   --sz-p-img: 65px;
@@ -492,6 +492,9 @@ body.large-mode .vm-close{ width:44px; height:44px; }
 }
 .vm-ratio{
   position:relative; width:100%; padding-top:56.25%;
+}
+.vm-ratio.is-vertical{
+  width:min(100%, 420px); margin:0 auto; padding-top:177.78%;
 }
 .vm-ratio > iframe,
 .vm-ratio > video,
@@ -1490,6 +1493,19 @@ function getYouTubeVideoId(url) {
   return '';
 }
 
+function isVerticalYouTubeUrl(url) {
+  const u = normalizeUrl(url);
+  if (!u) return false;
+  try {
+    const parsed = new URL(u);
+    const host = (parsed.hostname || '').toLowerCase();
+    if (!host.includes('youtube.com')) return false;
+    const parts = (parsed.pathname || '').split('/').filter(Boolean);
+    return parts.includes('shorts');
+  } catch (e) {}
+  return /youtube\.com\/shorts\//i.test(u);
+}
+
 function getInlineVideoPayload(url) {
   const u = normalizeUrl(url);
   if (!u) return null;
@@ -1497,14 +1513,15 @@ function getInlineVideoPayload(url) {
   if (ytId) {
     return {
       kind: 'youtube',
+      ratioClass: isVerticalYouTubeUrl(u) ? 'is-vertical' : '',
       embedUrl: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(ytId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
     };
   }
   if (/\.(mp4|m4v|mov|webm)(\?|#|$)/i.test(u)) {
-    return { kind: 'file', src: u, mime: 'video/mp4' };
+    return { kind: 'file', src: u, mime: 'video/mp4', ratioClass: '' };
   }
   if (/\.m3u8(\?|#|$)/i.test(u)) {
-    return { kind: 'file', src: u, mime: 'application/x-mpegURL' };
+    return { kind: 'file', src: u, mime: 'application/x-mpegURL', ratioClass: '' };
   }
   return null;
 }
@@ -1595,11 +1612,12 @@ function openVideoModal(code, productName, rawUrl, payload) {
   subtitleEl.textContent = productName ? `商品：${productName}` : (code || '');
   noteEl.textContent = '站內播放可直接關閉回到原商品；若偏好使用 YouTube / 外部播放器，也可點右上角外部開啟。';
 
+  const ratioClass = payload.ratioClass ? ` ${payload.ratioClass}` : '';
   if (payload.kind === 'youtube') {
-    playerEl.innerHTML = `<div class="vm-ratio"><iframe src="${escapeAttr(payload.embedUrl)}" title="商品影片" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+    playerEl.innerHTML = `<div class="vm-ratio${ratioClass}"><iframe src="${escapeAttr(payload.embedUrl)}" title="商品影片" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
   } else if (payload.kind === 'file') {
     const mimeAttr = payload.mime ? ` type="${escapeAttr(payload.mime)}"` : '';
-    playerEl.innerHTML = `<div class="vm-ratio"><video controls playsinline webkit-playsinline preload="metadata" src="${escapeAttr(payload.src)}"${mimeAttr}></video></div>`;
+    playerEl.innerHTML = `<div class="vm-ratio${ratioClass}"><video controls playsinline webkit-playsinline preload="metadata" src="${escapeAttr(payload.src)}"${mimeAttr}></video></div>`;
   } else {
     return false;
   }
@@ -2560,9 +2578,24 @@ function appendProductCardsBatch(grid, items, startIndex, batchSize, filterText,
   return endIndex;
 }
 
+function extractSearchTokens(term) {
+  return Array.from(new Set(
+    String(term || '')
+      .split(/[\s,，+]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+  ));
+}
+
 function highlightText(text, term) {
-  if (!term) return text;
-  const re = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+  const tokens = extractSearchTokens(term);
+  if (!tokens.length) return text;
+  const pattern = tokens
+    .sort((a, b) => b.length - a.length)
+    .map(t => escapeRegExp(t))
+    .join('|');
+  if (!pattern) return text;
+  const re = new RegExp(`(${pattern})`, 'gi');
   return String(text).replace(re, '<mark class="highlight">$1</mark>');
 }
 
@@ -2588,11 +2621,17 @@ function renderUI(filterText = "", options = {}) {
     const filteredItems = secData.items.filter(p => {
       if (activeTagNorm) return productHasTag(p, activeTagNorm);
       if (!filterText) return true;
-      const term = filterText.toLowerCase();
+      const tokens = extractSearchTokens(filterText);
+      if (!tokens.length) return true;
       const pitchTitle = String(p?.pitch?.title || '').toLowerCase();
       const pitchTags = String(p?.pitch?.tags || '').toLowerCase();
-      return p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) ||
-             pitchTitle.includes(term) || pitchTags.includes(term);
+      const haystack = [
+        String(p?.name || '').toLowerCase(),
+        String(p?.code || '').toLowerCase(),
+        pitchTitle,
+        pitchTags
+      ].join(' ');
+      return tokens.every(token => haystack.includes(token));
     });
 
     if (filteredItems.length === 0) return;
@@ -2671,7 +2710,9 @@ function handleSearch(val) {
   tagFilterSourceCardId = '';
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
-    const keyword = String(val || '').trim();
+    const keyword = String(val || '')
+      .replace(/[\s,，+]+/g, ' ')
+      .trim();
     const input = document.getElementById('searchInput');
     if (input && input.value !== keyword) input.value = keyword;
 
