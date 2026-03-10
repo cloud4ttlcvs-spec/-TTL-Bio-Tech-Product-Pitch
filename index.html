@@ -193,25 +193,6 @@ mark.highlight { background-color: var(--highlight-color); color: var(--highligh
 body.large-mode .nav-pill { font-size: 15px; padding: 8px 16px; }
 .nav-pill.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; box-shadow: 0 2px 6px rgba(0, 137, 123, 0.3); }
 
-/* Video overlay for in-app YouTube playback */
-.video-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.82);
-  display: none; align-items: center; justify-content: center;
-  z-index: 200000;
-}
-.video-overlay.open { display: flex; }
-.video-container { width: min(92vw, 560px); position: relative; }
-.video-container::before { content:""; display:block; padding-top:56.25%; }
-.video-container.vertical::before { padding-top:177.78%; }
-.video-container iframe {
-  position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:12px; background:#000;
-}
-.video-close {
-  position:absolute; top:14px; right:14px; width:42px; height:42px;
-  border:none; border-radius:999px; background:rgba(255,255,255,0.14); color:#fff;
-  font-size:28px; cursor:pointer; z-index:200001;
-}
-
 #ranking-section { 
   margin: 20px 15px 25px; background: #fff; padding: 15px; border-radius: 16px; 
   border: 1px solid #f0f0f0; box-shadow: var(--card-shadow); display: none; scroll-margin-top: var(--sticky-offset);
@@ -265,6 +246,10 @@ body.large-mode .new-badge { font-size: 12px; padding: 4px 10px 4px 8px; }
 
 .p-img-box img { width: 90%; height: 90%; object-fit: contain; mix-blend-mode: multiply; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .p-card.active .p-img-box img { transform: scale(1.15); }
+.p-img-box.is-fallback { cursor: default; }
+.p-img-box.is-fallback .zoom-hint { display: none; }
+.p-img-box img.img-fallback, .r-img.img-fallback { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: normal; }
+.r-img-wrap.img-fallback-wrap, .p-img-box.is-fallback { background: linear-gradient(135deg, #faf7f2, #f2efe8); border-color: #e7dfd2; }
 
 /* Zoom Hint Logic */
 .zoom-hint {
@@ -330,6 +315,10 @@ body.large-mode .pitch-title { font-size: 18px; }
 body.large-mode .pitch-content { color: #263238; }
 .pitch-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
 .tag { font-size: 10px; color: #546e7a; background: #eceff1; padding: 2px 8px; border-radius: 4px; }
+.tag.tag-clickable { cursor: pointer; user-select: none; transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+.tag.tag-clickable:hover { background: #dfe7ea; }
+.tag.tag-clickable:active { transform: scale(0.96); }
+.tag.tag-clickable.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(0,137,123,0.18); }
 body.large-mode .tag { font-size: 12px; padding: 4px 10px; }
 .no-data { font-size: 12px; color: #b0bec5; text-align: center; padding: 10px; }
 .btn-share {
@@ -437,6 +426,87 @@ body.large-mode .ms-label{ font-size:16px; }
 .ms-open{ color:#90a4ae; font-size:20px; flex-shrink:0; }
 .ms-empty{ text-align:center; padding:24px 10px; color:#90a4ae; }
 body.no-scroll{ overflow:hidden; }
+
+/* Product Video Modal */
+#video-modal{
+  position:fixed; inset:0; z-index:12100;
+  background:rgba(0,0,0,0.72); backdrop-filter:blur(6px);
+  opacity:0; pointer-events:none; transition:opacity 0.25s ease;
+  display:flex; justify-content:center; align-items:center;
+  padding:16px;
+}
+#video-modal.open{ opacity:1; pointer-events:auto; }
+.vm-panel{
+  width:min(100%, 780px);
+  max-height:min(88vh, 920px);
+  background:#fff; border-radius:18px;
+  box-shadow:0 18px 56px rgba(0,0,0,0.38);
+  overflow:hidden;
+  display:flex; flex-direction:column;
+  transform:translateY(12px) scale(.98);
+  transition:transform .25s ease;
+}
+#video-modal.open .vm-panel{ transform:translateY(0) scale(1); }
+.vm-head{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+  padding:14px 16px; border-bottom:1px solid #eef2f4;
+}
+.vm-title-wrap{ min-width:0; }
+.vm-title{
+  font-size:15px; font-weight:900; color:#263238;
+  display:flex; align-items:center; gap:6px; line-height:1.4;
+}
+.vm-sub{
+  margin-top:4px; font-size:12px; color:#78909c;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+body.large-mode .vm-title{ font-size:18px; }
+body.large-mode .vm-sub{ font-size:14px; }
+.vm-actions{
+  display:flex; align-items:center; gap:8px; flex-shrink:0;
+}
+.vm-action{
+  border:none; border-radius:999px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 12px; font-size:12px; font-weight:800;
+  background:#eceff1; color:#455a64;
+}
+.vm-action:active{ transform:scale(.97); }
+.vm-action.primary{
+  background:linear-gradient(135deg,#ffe082,#ffcc80);
+  color:#4e342e;
+}
+body.large-mode .vm-action{ font-size:14px; padding:10px 14px; }
+.vm-close{
+  width:34px; height:34px; border:none; border-radius:50%;
+  background:#eceff1; color:#546e7a; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+body.large-mode .vm-close{ width:44px; height:44px; }
+.vm-body{
+  padding:14px; overflow:auto; -webkit-overflow-scrolling:touch;
+}
+.vm-stage{
+  background:#000; border-radius:16px; overflow:hidden;
+  box-shadow:0 8px 20px rgba(0,0,0,0.16);
+}
+.vm-ratio{
+  position:relative; width:100%; padding-top:56.25%;
+}
+.vm-ratio > iframe,
+.vm-ratio > video,
+.vm-ratio > .vm-fallback{
+  position:absolute; inset:0; width:100%; height:100%;
+}
+.vm-ratio > iframe,
+.vm-ratio > video{
+  border:0; display:block; background:#000;
+}
+.vm-ratio > video{ object-fit:contain; }
+.vm-note{
+  padding:10px 4px 0; font-size:12px; color:#78909c; line-height:1.6;
+}
+body.large-mode .vm-note{ font-size:14px; }
 
 /* --- PROMO VIEW STYLES (V5.0 Multi-Filter) --- */
 .promo-header {
@@ -963,6 +1033,33 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   </div>
 </div>
 
+<div id="video-modal" onclick="closeVideoModal()">
+  <div class="vm-panel" onclick="event.stopPropagation()">
+    <div class="vm-head">
+      <div class="vm-title-wrap">
+        <div class="vm-title">
+          <span class="material-icons-round" style="font-size:18px;color:#546e7a">smart_display</span>
+          <span id="vm-title">商品影片</span>
+        </div>
+        <div class="vm-sub" id="vm-subtitle"></div>
+      </div>
+      <div class="vm-actions">
+        <button class="vm-action primary" id="vm-external-btn" onclick="openCurrentVideoExternally(event)">
+          <span class="material-icons-round" style="font-size:18px">open_in_new</span>
+          外部開啟
+        </button>
+        <button class="vm-close" onclick="closeVideoModal()">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="vm-body">
+      <div class="vm-stage" id="vm-player"></div>
+      <div class="vm-note" id="vm-note"></div>
+    </div>
+  </div>
+</div>
+
 <div id="exit-modal">
   <div class="exit-card">
     <span class="material-icons-round exit-icon">exit_to_app</span>
@@ -977,11 +1074,6 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 
 <div id="toast"><span class="material-icons-round">check_circle</span> 已複製銷售文案</div>
 
-<div id="videoOverlay" class="video-overlay" onclick="closeVideoOverlay(event)">
-  <div class="video-container" id="videoContainer"></div>
-  <button class="video-close" onclick="closeVideoOverlay(event)" aria-label="關閉影片">×</button>
-</div>
-
 <div id="update-toast">
   <span class="material-icons-round" style="color:#ffeb3b">system_update</span>
   <div>發現新版本</div>
@@ -992,20 +1084,50 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 
 <script>
 // --- SPLASH & iOS PROMPT LOGIC ---
-window.addEventListener('load', () => {
-  // Show Error Button after 8 seconds of loading
-  setTimeout(() => {
-    const loader = document.getElementById('loader');
-    if(loader && loader.style.opacity !== '0') {
-       document.getElementById('btn-force-reload').style.display = 'block';
-    }
-  }, 8000);
+const LOADER_HINT_DELAY_MS = 15000;
+let loaderHintTimer = null;
 
+function scheduleDelayedReloadHint() {
+  clearTimeout(loaderHintTimer);
+  const btn = document.getElementById('btn-force-reload');
+  if (btn) btn.style.display = 'none';
+  loaderHintTimer = setTimeout(() => {
+    const loader = document.getElementById('loader');
+    if (loader && loader.style.opacity !== '0' && !loader.dataset.done) {
+      if (btn) btn.style.display = 'block';
+    }
+  }, LOADER_HINT_DELAY_MS);
+}
+
+function clearDelayedReloadHint() {
+  clearTimeout(loaderHintTimer);
+  loaderHintTimer = null;
+  const btn = document.getElementById('btn-force-reload');
+  if (btn) btn.style.display = 'none';
+}
+
+function hideLoader() {
+  clearDelayedReloadHint();
+  const loader = document.getElementById('loader');
+  if (!loader) return;
+  loader.dataset.done = '1';
+  loader.style.opacity = 0;
+  setTimeout(() => {
+    if (loader && loader.parentNode) loader.remove();
+  }, 500);
+}
+
+window.addEventListener('load', () => {
   setTimeout(() => {
     const splash = document.getElementById('splash-screen');
-    if(splash) {
+    if (splash) {
       splash.classList.add('hidden');
-      setTimeout(() => { splash.style.display = 'none'; }, 600);
+      setTimeout(() => {
+        splash.style.display = 'none';
+        scheduleDelayedReloadHint();
+      }, 600);
+    } else {
+      scheduleDelayedReloadHint();
     }
     
     setTimeout(() => {
@@ -1032,20 +1154,86 @@ function closeIosPrompt() {
   }, 500);
 }
 
-function forceClearCache() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) {
-        registration.unregister();
-      }
-      window.location.reload(true);
-    });
-  } else {
-    window.location.reload(true);
+async function forceClearCache() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(registration => registration.unregister()));
+    }
+    if ('caches' in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map(key => caches.delete(key)));
+    }
+  } catch (err) {
+    console.warn('forceClearCache failed', err);
+  }
+  window.location.reload();
+}
+
+const IMG_RETRY_PARAM = 'img_retry';
+const IMG_FALLBACK_SRC = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">  <defs>    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">      <stop offset="0%" stop-color="#f7f2ea"/>      <stop offset="100%" stop-color="#ece4d6"/>    </linearGradient>  </defs>  <rect width="320" height="320" rx="28" fill="url(#g)"/>  <g fill="none" stroke="#b9ab95" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">    <rect x="74" y="86" width="172" height="148" rx="16"/>    <path d="M96 210l42-46 34 34 28-32 24 26"/>    <circle cx="132" cy="132" r="14" fill="#b9ab95" stroke="none"/>  </g>  <text x="160" y="276" text-anchor="middle" fill="#8c7c67" font-size="24" font-family="Arial, 'Noto Sans TC', sans-serif">圖片暫時無法載入</text></svg>`);
+
+function escapeHtmlAttr(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildRetryImageUrl(src) {
+  const raw = String(src || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, window.location.href);
+    url.searchParams.set(IMG_RETRY_PARAM, Date.now().toString());
+    return url.toString();
+  } catch (err) {
+    const glue = raw.includes('?') ? '&' : '?';
+    return `${raw}${glue}${IMG_RETRY_PARAM}=${Date.now()}`;
   }
 }
 
+function applyImageFallback(imgEl) {
+  if (!imgEl) return;
+  imgEl.onerror = null;
+  imgEl.classList.add('img-fallback');
+  imgEl.src = IMG_FALLBACK_SRC;
+  const wrap = imgEl.closest('.p-img-box, .r-img-wrap');
+  if (wrap) {
+    wrap.classList.add('img-fallback-wrap');
+    if (wrap.classList.contains('p-img-box')) wrap.classList.add('is-fallback');
+  }
+}
+
+function handleCatalogImageLoad(imgEl) {
+  if (!imgEl) return;
+  imgEl.classList.remove('img-fallback');
+  const wrap = imgEl.closest('.p-img-box, .r-img-wrap');
+  if (wrap) {
+    wrap.classList.remove('img-fallback-wrap');
+    wrap.classList.remove('is-fallback');
+  }
+}
+
+function handleCatalogImageError(imgEl) {
+  if (!imgEl) return;
+  const originalSrc = imgEl.dataset.src || imgEl.getAttribute('src') || '';
+  if (!imgEl.dataset.retryAttempted) {
+    imgEl.dataset.retryAttempted = '1';
+    const retryUrl = buildRetryImageUrl(originalSrc);
+    if (retryUrl) {
+      imgEl.src = retryUrl;
+      return;
+    }
+  }
+  applyImageFallback(imgEl);
+}
+
 const TS = Date.now();
+// 升級用：部署 merged-products-feed 的 GAS 後，把網址貼到這裡；未設定時會自動 fallback 到既有 CSV。
+const MERGED_PRODUCTS_FEED = "https://script.google.com/macros/s/AKfycbzjsviOSuzZY32R5xaI_LzBe11iBSNOPOtloLukUti8idghoWJqiI9AuyaM5NzoBixq/exec"; // 例如：https://script.google.com/macros/s/AKfycb.../exec
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
 const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
@@ -1072,30 +1260,52 @@ async function fetchTextWithRetry(url, timeoutMs = 15000, retries = 2) {
   }
 }
 
-// --- CSV FETCH SMART (Double Cache-Busting + Proxy) ---
+function appendQueryParam(url, key, value) {
+  const joiner = String(url).includes('?') ? '&' : '?';
+  return `${url}${joiner}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
+}
+
+function hasConfiguredMergedFeed() {
+  return /^https?:\/\//i.test(MERGED_PRODUCTS_FEED || '');
+}
+
+// --- FETCH SMART (Double Cache-Busting + Proxy) ---
 const PROXY_PROVIDERS = [
-  { name: "direct", build: (u) => u + "&_bust=" + Date.now() }, 
-  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(u + "&_bust=" + Date.now()) },
-  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u + "&_bust=" + Date.now()) }
+  { name: "direct", build: (u) => appendQueryParam(u, "_bust", Date.now()) }, 
+  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(appendQueryParam(u, "_bust", Date.now())) },
+  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(appendQueryParam(u, "_bust", Date.now())) }
 ];
 
-async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
+async function fetchTextSmart(sourceUrl, { label = "text", required = true, timeoutMs = 15000 } = {}) {
   let lastErr = null;
   for (const p of PROXY_PROVIDERS) {
     const u = p.build(sourceUrl);
     try {
-      // Use retry helper
       const t = await fetchTextWithRetry(u, timeoutMs);
-      if (!t || t.trim().length < 20) throw new Error("empty response");
+      if (!t || t.trim().length < 2) throw new Error("empty response");
       if (looksLikeHtml(t)) throw new Error("html response");
       return t;
     } catch (e) {
       lastErr = e;
-      console.warn(`[CSV] ${label} failed via ${p.name}:`, e);
+      console.warn(`[FETCH] ${label} failed via ${p.name}:`, e);
     }
   }
   if (required) throw (lastErr || new Error("fetch failed"));
   return null;
+}
+
+async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
+  return await fetchTextSmart(sourceUrl, { label, required, timeoutMs });
+}
+
+async function fetchJsonSmart(sourceUrl, { label = "json", required = true, timeoutMs = 15000 } = {}) {
+  const raw = await fetchTextSmart(sourceUrl, { label, required, timeoutMs });
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`[JSON] ${label} parse failed: ${e.message}`);
+  }
 }
 
 function looksLikeHtml(t) {
@@ -1189,10 +1399,114 @@ function escapeHtml(s) {
 
 function normalizeUrl(u) {
   if (!u) return '';
-  let s = u.trim();
+  let s = String(u);
+  s = s
+    .replace(/[\u200B-\u200D\uFEFF\u2060]/g, '')
+    .replace(/[\u00A0\u202F\u3000]/g, ' ')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/&amp;/gi, '&')
+    .trim();
+  if (!s) return '';
+
+  // Remove wrapper quotes / brackets often introduced by copy-paste or sheet formatting.
+  s = s
+    .replace(/^["'`“”‘’「」『』‹›«»<>《》【】〔〕（）()\[\]]+/, '')
+    .replace(/["'`“”‘’「」『』‹›«»<>《》【】〔〕（）()\[\]]+$/, '')
+    .trim();
+
+  // Pasted URLs occasionally include stray spaces between protocol characters or inside the URL.
+  s = s.replace(/^h\s*t\s*t\s*p\s*s?\s*:\s*\/\s*\//i, m => m.replace(/\s+/g, ''));
+  s = s.replace(/\s+/g, '').trim();
+
   if (!s) return '';
   if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
   return s;
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/`/g, '&#96;');
+}
+
+function chooseBetterText(primary, secondary) {
+  const a = (primary || '').toString().trim();
+  const b = (secondary || '').toString().trim();
+  if (a && !b) return a;
+  if (b && !a) return b;
+  return a || b || '';
+}
+
+function scoreProductRecord(p) {
+  if (!p) return -999;
+  let score = 0;
+  if (p.pitch) score += 4;
+  if (p.videoUrl) score += 3;
+  if (p.moreLinksRaw) score += 2;
+  if (p.photo) score += 1;
+  if (p.name) score += 1;
+  if (p.spec) score += 1;
+  if (p.category && /加價購/i.test(p.category)) score -= 3;
+  if (p.isHiddenPp) score -= 2;
+  return score;
+}
+
+function mergeProductRecords(existing, incoming) {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  const existingScore = scoreProductRecord(existing);
+  const incomingScore = scoreProductRecord(incoming);
+  const winner = incomingScore > existingScore ? incoming : existing;
+  const loser = winner === incoming ? existing : incoming;
+  return {
+    ...winner,
+    id: chooseBetterText(winner.id, loser.id),
+    code: chooseBetterText(winner.code, loser.code),
+    name: chooseBetterText(winner.name, loser.name),
+    category: chooseBetterText(winner.category, loser.category),
+    spec: chooseBetterText(winner.spec, loser.spec),
+    photo: chooseBetterText(winner.photo, loser.photo),
+    videoUrl: chooseBetterText(winner.videoUrl, loser.videoUrl),
+    moreLinksRaw: chooseBetterText(winner.moreLinksRaw, loser.moreLinksRaw),
+    pitch: winner.pitch || loser.pitch || null,
+    isHiddenPp: Boolean(winner.isHiddenPp || loser.isHiddenPp),
+    price: Number.isFinite(winner.price) && winner.price > 0 ? winner.price : loser.price
+  };
+}
+
+function getYouTubeVideoId(url) {
+  const u = normalizeUrl(url);
+  if (!u) return '';
+  try {
+    const parsed = new URL(u);
+    const host = (parsed.hostname || '').toLowerCase();
+    if (host === 'youtu.be') {
+      return (parsed.pathname || '').split('/').filter(Boolean)[0] || '';
+    }
+    if (host.includes('youtube.com')) {
+      if (parsed.searchParams.get('v')) return parsed.searchParams.get('v');
+      const parts = (parsed.pathname || '').split('/').filter(Boolean);
+      const idx = parts.findIndex(part => part === 'embed' || part === 'shorts' || part === 'live');
+      if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+    }
+  } catch(e) {}
+  return '';
+}
+
+function getInlineVideoPayload(url) {
+  const u = normalizeUrl(url);
+  if (!u) return null;
+  const ytId = getYouTubeVideoId(u);
+  if (ytId) {
+    return {
+      kind: 'youtube',
+      embedUrl: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(ytId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
+    };
+  }
+  if (/\.(mp4|m4v|mov|webm)(\?|#|$)/i.test(u)) {
+    return { kind: 'file', src: u, mime: 'video/mp4' };
+  }
+  if (/\.m3u8(\?|#|$)/i.test(u)) {
+    return { kind: 'file', src: u, mime: 'application/x-mpegURL' };
+  }
+  return null;
 }
 
 function inferLinkType(url) {
@@ -1264,6 +1578,54 @@ function openExternalLink(e, url) {
 }
 
 let CURRENT_MEDIA_CODE = null;
+let CURRENT_VIDEO_CODE = null;
+let CURRENT_VIDEO_URL = '';
+
+function openVideoModal(code, productName, rawUrl, payload) {
+  const modal = document.getElementById('video-modal');
+  const titleEl = document.getElementById('vm-title');
+  const subtitleEl = document.getElementById('vm-subtitle');
+  const playerEl = document.getElementById('vm-player');
+  const noteEl = document.getElementById('vm-note');
+  if (!modal || !titleEl || !subtitleEl || !playerEl || !noteEl) return false;
+
+  CURRENT_VIDEO_CODE = code || '';
+  CURRENT_VIDEO_URL = normalizeUrl(rawUrl);
+  titleEl.textContent = '商品影片';
+  subtitleEl.textContent = productName ? `商品：${productName}` : (code || '');
+  noteEl.textContent = '站內播放可直接關閉回到原商品；若偏好使用 YouTube / 外部播放器，也可點右上角外部開啟。';
+
+  if (payload.kind === 'youtube') {
+    playerEl.innerHTML = `<div class="vm-ratio"><iframe src="${escapeAttr(payload.embedUrl)}" title="商品影片" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+  } else if (payload.kind === 'file') {
+    const mimeAttr = payload.mime ? ` type="${escapeAttr(payload.mime)}"` : '';
+    playerEl.innerHTML = `<div class="vm-ratio"><video controls playsinline webkit-playsinline preload="metadata" src="${escapeAttr(payload.src)}"${mimeAttr}></video></div>`;
+  } else {
+    return false;
+  }
+
+  document.body.classList.add('no-scroll');
+  modal.classList.add('open');
+  history.pushState({modal: 'video-modal', code: code}, document.title);
+  return true;
+}
+
+function closeVideoModal(pushBack = true) {
+  if (pushBack) { history.back(); return; }
+  CURRENT_VIDEO_CODE = null;
+  CURRENT_VIDEO_URL = '';
+  const modal = document.getElementById('video-modal');
+  const playerEl = document.getElementById('vm-player');
+  if (playerEl) playerEl.innerHTML = '';
+  if (modal) modal.classList.remove('open');
+  document.body.classList.remove('no-scroll');
+}
+
+function openCurrentVideoExternally(e) {
+  if (e) e.stopPropagation();
+  if (!CURRENT_VIDEO_URL) return;
+  openInNewTab(CURRENT_VIDEO_URL);
+}
 
 function openProductVideo(e, code) {
   if (e) e.stopPropagation();
@@ -1275,21 +1637,20 @@ function openProductVideo(e, code) {
   // Mark as seen (only if the video_url equals last_seen then it becomes "seen/grey")
   markVideoSeen(code, p.videoUrl);
 
+  const inlinePayload = getInlineVideoPayload(url);
+  if (inlinePayload) {
+    openVideoModal(code, p.name || code, url, inlinePayload);
+    return;
+  }
+
+  // Fallback: external open for unsupported providers/pages
+  openInNewTab(url);
+
   const toast = document.getElementById("toast");
-  if (/youtu\.be|youtube\.com/i.test(url)) {
-    openYouTubeOverlay(url);
-    if (toast) {
-      toast.innerHTML = `<span class="material-icons-round">ondemand_video</span> 影片已開啟`;
-      toast.classList.add("show");
-      setTimeout(() => toast.classList.remove("show"), 2000);
-    }
-  } else {
-    openInNewTab(url);
-    if (toast) {
-      toast.innerHTML = `<span class="material-icons-round">open_in_new</span> 已於新分頁開啟影片`;
-      toast.classList.add("show");
-      setTimeout(() => toast.classList.remove("show"), 2000);
-    }
+  if (toast) {
+    toast.innerHTML = `<span class="material-icons-round">open_in_new</span> 已於外部開啟影片`;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2200);
   }
 }
 
@@ -1399,17 +1760,15 @@ window.onload = function() {
       return;
     }
 
-    const ms = document.getElementById("media-sheet");
-    if (ms && ms.classList.contains("open") && (!state || state.modal !== 'media-sheet')) {
-      closeProductMoreSheet(false);
+    const vm = document.getElementById("video-modal");
+    if (vm && vm.classList.contains("open") && (!state || state.modal !== 'video-modal')) {
+      closeVideoModal(false);
       return;
     }
 
-    const vo = document.getElementById('videoOverlay');
-    if (vo && vo.classList.contains('open') && (!state || state.modal !== 'video-overlay')) {
-      vo.classList.remove('open');
-      const container = document.getElementById('videoContainer');
-      if (container) { container.innerHTML = ''; container.classList.remove('vertical'); }
+    const ms = document.getElementById("media-sheet");
+    if (ms && ms.classList.contains("open") && (!state || state.modal !== 'media-sheet')) {
+      closeProductMoreSheet(false);
       return;
     }
 
@@ -1424,6 +1783,17 @@ window.onload = function() {
       activeCard.querySelector('.p-detail').style.maxHeight = null;
       return;
     }
+
+    if (activeTagFilter && (!state || state.page !== 'tag-filter')) {
+      restoreFromTagFilter(state && state.cardId ? state.cardId : '');
+      return;
+    }
+
+    if (activeSearchTerm && (!state || state.page !== 'search')) {
+      restoreFromSearch();
+      return;
+    }
+
     if (!state || state.page === 'root') {
       showExitModal();
     }
@@ -1509,149 +1879,275 @@ const getVal = (row, targetKey) => {
   return foundKey ? row[foundKey] : "";
 };
 
-async function init() {
-  try {
-    // 1. Fetch CSVs
-    const [resProd, resPitch, resRank, resPromo] = await Promise.all([
-      fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
-      fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true }),
-      fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false }),
-      fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false })
-    ]);
 
-    // 2. Parse Pitch
-    Papa.parse(resPitch, { header: true, skipEmptyLines: true }).data.forEach(row => {
-      const code = getVal(row, 'product_code').trim().toUpperCase();
-      const pitchName = getVal(row, 'product_name').trim(); 
-      const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
-      const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1' || rawHidden === 'Y'); 
+function parsePitchCsv(csvText) {
+  PITCH_MAP = new Map();
+  PITCH_COUNTER = new Map();
+  Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach(row => {
+    const code = getVal(row, 'product_code').trim().toUpperCase();
+    const pitchName = getVal(row, 'product_name').trim();
+    const rawHidden = getVal(row, 'is_hidden_pp').trim().toUpperCase();
+    const isHidden = (rawHidden === 'TRUE' || rawHidden === 'YES' || rawHidden === '1' || rawHidden === 'Y');
 
-      if(code) {
-        if (!PITCH_MAP.has(code)) PITCH_MAP.set(code, []);
-        PITCH_MAP.get(code).push({
-          title: getVal(row, 'pitch_title').trim(), 
-          content: getVal(row, 'pitch_content').trim(), 
-          tags: getVal(row, 'tags').trim(),
-          isNew: getVal(row, 'is_new').trim().toUpperCase() === 'TRUE',
-          name: pitchName, 
-          isHidden: isHidden 
-        });
-      }
-    });
-
-    // 3. Parse Products
-    Papa.parse(resProd, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
-      const code = getVal(row, 'product_code').trim().toUpperCase();
-      let originalName = getVal(row, 'product_name').trim();
-      const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
-      
-      let pitchData = null;
-      if (PITCH_MAP.has(code)) {
-        const list = PITCH_MAP.get(code);
-        if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
-        const currentIndex = PITCH_COUNTER.get(code);
-        if (currentIndex < list.length) {
-          pitchData = list[currentIndex];
-          PITCH_COUNTER.set(code, currentIndex + 1);
-        }
-      }
-
-      if (pitchData && pitchData.isHidden) return; 
-      if(!code || !originalName || isGift) return;
-
-      if (originalName.includes("洗卸潔顏露3入組") || originalName.includes("甘益守禮盒")) return; 
-      const hiddenSets = ["Set-01", "Set-02", "Set-03"];
-      if (hiddenSets.some(s => code.includes(s))) return;
-
-      let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
-      if (!pitchData || !pitchData.name) {
-          finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
-      }
-
-      const category = getVal(row, 'category').trim();
-      const listPrice = getVal(row, 'list_price') || "0";
-      const spec = getVal(row, 'spec');
-            const photo = getVal(row, 'photos url');
-      // [預設計擴充] 商品影音/更多素材：優先讀 video_url / more_links（向下相容舊欄位 photos url 2 / 3）
-      const videoUrl = (getVal(row, 'video_url') || getVal(row, 'video link') || getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || "").trim();
-      const moreLinksRaw = (getVal(row, 'more_links') || getVal(row, 'more_links_raw') || getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || "").trim();
-
-      const p = {
-        id: `p-${idx}`, code: code, name: finalName, category: category,
-        price: Number(listPrice.replace(/,/g,'')),
-        spec: spec, photo: photo,
-        videoUrl: videoUrl, moreLinksRaw: moreLinksRaw,
-        pitch: pitchData || null
-      };
-
-      PRODUCT_MAP.set(code, p);
-      const group = classifyProduct(p.name, p.category);
-      if(SECTIONS[group]) SECTIONS[group].items.push(p);
-      else SECTIONS.other.items.push(p);
-    });
-
-    // 4. Parse Promo (NEW: Channel Icons)
-    if (resPromo) {
-      Papa.parse(resPromo, { header: true, skipEmptyLines: true }).data.forEach(row => {
-        const id = getVal(row, 'promo_id').trim();
-        if(!id) return;
-        
-        // Parse channels
-        const c1 = getVal(row, 'channel_showroom').trim().toUpperCase();
-        const c2 = getVal(row, 'channel_mart').trim().toUpperCase();
-        const c3 = getVal(row, 'channel_eshop').trim().toUpperCase();
-        const c4 = getVal(row, 'channel_office').trim().toUpperCase();
-        
-        const promo = {
-          id: id,
-          title: getVal(row, 'title') || "未命名活動",
-          content: getVal(row, 'content') || "",
-          img: getVal(row, 'img_url') || "",
-          start: getVal(row, 'start_date'),
-          end: getVal(row, 'end_date'),
-          color: getVal(row, 'bg_color') || "#fff",
-          relatedRaw: getVal(row, 'related_codes') || "",
-          // Channel Flags (TRUE/YES/1)
-          ch: {
-            show: (c1==='TRUE'||c1==='YES'||c1==='1'),
-            mart: (c2==='TRUE'||c2==='YES'||c2==='1'),
-            eshop: (c3==='TRUE'||c3==='YES'||c3==='1'),
-            office: (c4==='TRUE'||c4==='YES'||c4==='1')
-          }
-        };
-        
-        PROMO_LIST.push(promo);
-        PROMO_MAP.set(id, promo);
-
-        const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
-        tokens.forEach(token => {
-          if (PRODUCT_MAP.has(token)) {
-            addPromoToProduct(token, promo);
-          } else {
-            const matchedCodes = findProductsByKeyword(token);
-            if (matchedCodes.length > 0) {
-              matchedCodes.forEach(c => addPromoToProduct(c, promo));
-            }
-          }
-        });
+    if (code) {
+      if (!PITCH_MAP.has(code)) PITCH_MAP.set(code, []);
+      PITCH_MAP.get(code).push({
+        title: getVal(row, 'pitch_title').trim(),
+        content: getVal(row, 'pitch_content').trim(),
+        tags: getVal(row, 'tags').trim(),
+        isNew: getVal(row, 'is_new').trim().toUpperCase() === 'TRUE',
+        name: pitchName,
+        isHidden: isHidden
       });
     }
+  });
+}
 
-    // 5. Parse Rank
-    if (resRank) processRankings(resRank);
-    
-    // 6. Render
+function parseProductsCsv(csvText) {
+  PRODUCT_MAP = new Map();
+  Object.values(SECTIONS).forEach(sec => { sec.items = []; });
+  PITCH_COUNTER = new Map();
+
+  Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
+    const code = getVal(row, 'product_code').trim().toUpperCase();
+    let originalName = getVal(row, 'product_name').trim();
+    const isGift = getVal(row, 'is_gift').toLowerCase().includes('true') || getVal(row, 'is_gift').includes('是');
+    const isHiddenPp = (getVal(row, 'is_hidden_pp') || getVal(row, 'is_hidden_pp ') || '').toString().trim().toUpperCase() === 'TRUE';
+
+    if (isHiddenPp) return;
+
+    let pitchData = null;
+    if (PITCH_MAP.has(code)) {
+      const list = PITCH_MAP.get(code);
+      if (!PITCH_COUNTER.has(code)) PITCH_COUNTER.set(code, 0);
+      const currentIndex = PITCH_COUNTER.get(code);
+      if (currentIndex < list.length) {
+        pitchData = list[currentIndex];
+        PITCH_COUNTER.set(code, currentIndex + 1);
+      }
+    }
+
+    if (pitchData && pitchData.isHidden) return;
+    if (!code || !originalName || isGift) return;
+
+    if (originalName.includes("洗卸潔顏露3入組") || originalName.includes("甘益守禮盒")) return;
+    const hiddenSets = ["Set-01", "Set-02", "Set-03"];
+    if (hiddenSets.some(s => code.includes(s))) return;
+
+    let finalName = (pitchData && pitchData.name) ? pitchData.name : originalName;
+    if (!pitchData || !pitchData.name) {
+      finalName = finalName.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
+    }
+
+    const category = getVal(row, 'category').trim();
+    const listPrice = getVal(row, 'list_price') || "0";
+    const spec = getVal(row, 'spec');
+    const photo = getVal(row, 'photos url');
+    const videoUrl = (getVal(row, 'video_url') || getVal(row, 'video link') || getVal(row, 'photos url 2') || getVal(row, 'photo url 2') || "").trim();
+    const moreLinksRaw = (getVal(row, 'more_links') || getVal(row, 'more_links_raw') || getVal(row, 'photos url 3') || getVal(row, 'photo url 3') || "").trim();
+
+    const p = {
+      id: `p-${idx}`, code: code, name: finalName, category: category,
+      price: Number(listPrice.replace(/,/g,'')),
+      spec: spec, photo: photo,
+      videoUrl: videoUrl, moreLinksRaw: moreLinksRaw,
+      pitch: pitchData || null,
+      isHiddenPp: isHiddenPp
+    };
+
+    PRODUCT_MAP.set(code, mergeProductRecords(PRODUCT_MAP.get(code), p));
+    const group = classifyProduct(p.name, p.category);
+    if (SECTIONS[group]) SECTIONS[group].items.push(p);
+    else SECTIONS.other.items.push(p);
+  });
+}
+
+function normalizeBool(val) {
+  const s = String(val || '').trim().toUpperCase();
+  return s === 'TRUE' || s === 'YES' || s === '1' || s === 'Y';
+}
+
+function sanitizeItemCode(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+function normalizePitchData(rawPitch = {}, fallbackName = '') {
+  const title = String(rawPitch?.title || rawPitch?.pitch_title || '').trim();
+  const content = String(rawPitch?.content || rawPitch?.pitch_content || '').trim();
+  const tags = String(rawPitch?.tags || '').trim();
+  const isNew = normalizeBool(rawPitch?.isNew ?? rawPitch?.is_new);
+  const name = String(rawPitch?.name || rawPitch?.product_name || fallbackName || '').trim();
+  if (!title && !content && !tags && !name && !isNew) return null;
+  return { title, content, tags, isNew, name };
+}
+
+function normalizeMergedProductItem(raw, idx) {
+  if (!raw) return null;
+  const code = sanitizeItemCode(raw.code || raw.product_code);
+  let name = String(raw.name || raw.product_name || '').trim();
+  if (!code || !name) return null;
+
+  const category = String(raw.category || '').trim();
+  const isGift = normalizeBool(raw.isGift ?? raw.is_gift);
+  const isHiddenPp = normalizeBool(raw.isHiddenPp ?? raw.is_hidden_pp);
+  if (isGift || isHiddenPp) return null;
+  if (name.includes("洗卸潔顏露3入組") || name.includes("甘益守禮盒")) return null;
+  const hiddenSets = ["Set-01", "Set-02", "Set-03"];
+  if (hiddenSets.some(s => code.includes(s))) return null;
+
+  const pitch = normalizePitchData(raw.pitch || {}, name);
+  if (pitch && pitch.name) {
+    name = pitch.name;
+  } else {
+    name = name.replace("【買就送體驗包1組(精華液+乳液)】", "").replace("面膜任選買一送一", "面膜系列").replace("保暢益生菌 1200/2盒(買一送一)", "保暢益生菌");
+  }
+
+  const priceRaw = raw.price ?? raw.list_price ?? 0;
+  const price = Number(String(priceRaw).replace(/,/g, '')) || 0;
+  const photo = String(raw.photo || raw.photos_url || raw['photos url'] || '').trim();
+  const videoUrl = String(raw.videoUrl || raw.video_url || raw.video_link || raw['video link'] || '').trim();
+  const moreLinksRaw = String(raw.moreLinksRaw || raw.more_links || raw.more_links_raw || '').trim();
+  const spec = String(raw.spec || '').trim();
+  return {
+    id: `p-${idx}`,
+    code,
+    name,
+    category,
+    price,
+    spec,
+    photo,
+    videoUrl,
+    moreLinksRaw,
+    pitch,
+    isHiddenPp: false
+  };
+}
+
+function parseMergedProductsFeed(feedData) {
+  PRODUCT_MAP = new Map();
+  PITCH_MAP = new Map();
+  PITCH_COUNTER = new Map();
+  Object.values(SECTIONS).forEach(sec => { sec.items = []; });
+
+  const items = Array.isArray(feedData?.items) ? feedData.items : (Array.isArray(feedData) ? feedData : []);
+  items.forEach((raw, idx) => {
+    const p = normalizeMergedProductItem(raw, idx);
+    if (!p) return;
+    PRODUCT_MAP.set(p.code, mergeProductRecords(PRODUCT_MAP.get(p.code), p));
+    const group = classifyProduct(p.name, p.category);
+    if (SECTIONS[group]) SECTIONS[group].items.push(p);
+    else SECTIONS.other.items.push(p);
+  });
+}
+
+function parsePromoCsv(csvText) {
+  PROMO_LIST = [];
+  PROMO_MAP = new Map();
+  PRODUCT_TO_PROMO_MAP = new Map();
+  if (!csvText) return;
+
+  Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach(row => {
+    const id = getVal(row, 'promo_id').trim();
+    if (!id) return;
+
+    const c1 = getVal(row, 'channel_showroom').trim().toUpperCase();
+    const c2 = getVal(row, 'channel_mart').trim().toUpperCase();
+    const c3 = getVal(row, 'channel_eshop').trim().toUpperCase();
+    const c4 = getVal(row, 'channel_office').trim().toUpperCase();
+
+    const promo = {
+      id: id,
+      title: getVal(row, 'title') || "未命名活動",
+      content: getVal(row, 'content') || "",
+      img: getVal(row, 'img_url') || "",
+      start: getVal(row, 'start_date'),
+      end: getVal(row, 'end_date'),
+      color: getVal(row, 'bg_color') || "#fff",
+      relatedRaw: getVal(row, 'related_codes') || "",
+      ch: {
+        show: (c1==='TRUE'||c1==='YES'||c1==='1'),
+        mart: (c2==='TRUE'||c2==='YES'||c2==='1'),
+        eshop: (c3==='TRUE'||c3==='YES'||c3==='1'),
+        office: (c4==='TRUE'||c4==='YES'||c4==='1')
+      }
+    };
+
+    PROMO_LIST.push(promo);
+    PROMO_MAP.set(id, promo);
+
+    const tokens = promo.relatedRaw.split(/[\r\n,\s]+/).map(c => c.trim()).filter(c => c);
+    tokens.forEach(token => {
+      if (PRODUCT_MAP.has(token)) {
+        addPromoToProduct(token, promo);
+      } else {
+        const matchedCodes = findProductsByKeyword(token);
+        if (matchedCodes.length > 0) {
+          matchedCodes.forEach(c => addPromoToProduct(c, promo));
+        }
+      }
+    });
+  });
+}
+
+async function init() {
+  try {
+    const rankPromise = fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false });
+    const promoPromise = fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false });
+
+    let usedMergedFeed = false;
+    if (hasConfiguredMergedFeed()) {
+      try {
+        const mergedFeed = await fetchJsonSmart(MERGED_PRODUCTS_FEED, { label: 'merged-products', required: true, timeoutMs: 12000 });
+        parseMergedProductsFeed(mergedFeed);
+        usedMergedFeed = true;
+        console.info('[INIT] merged JSON feed loaded');
+      } catch (feedErr) {
+        console.warn('[INIT] merged JSON feed failed, fallback to CSV:', feedErr);
+      }
+    }
+
+    if (!usedMergedFeed) {
+      const [resProd, resPitch] = await Promise.all([
+        fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
+        fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true })
+      ]);
+      parsePitchCsv(resPitch);
+      parseProductsCsv(resProd);
+      console.info('[INIT] CSV fallback loaded');
+    }
+
     renderPromotions();
-    renderUI();
-    
-    // [V4.3 FIX] Force hiding promo container after everything is rendered
+    refreshCurrentProductView({ chunked: true });
     showMainView(false);
+    hideLoader();
 
-    document.getElementById("loader").style.opacity = 0;
-    setTimeout(() => document.getElementById("loader").remove(), 500);
+    Promise.allSettled([rankPromise, promoPromise]).then(results => {
+      const [rankResult, promoResult] = results;
+      let needsProductRefresh = false;
 
-  } catch(e) {
-    alert("讀取資料失敗，請稍後重試"); console.error(e);
+      if (promoResult.status === 'fulfilled' && promoResult.value) {
+        parsePromoCsv(promoResult.value);
+        renderPromotions();
+        needsProductRefresh = true;
+      } else if (promoResult.status === 'rejected') {
+        console.warn('[PROMO] background load failed:', promoResult.reason);
+      }
+
+      if (rankResult.status === 'fulfilled' && rankResult.value) {
+        processRankings(rankResult.value);
+      } else if (rankResult.status === 'rejected') {
+        console.warn('[RANK] background load failed:', rankResult.reason);
+      }
+
+      if (needsProductRefresh) {
+        refreshCurrentProductView();
+      } else {
+        updateRankingVisibility(getCurrentRenderFilterText());
+      }
+    });
+  } catch (e) {
+    alert("讀取資料失敗，請稍後重試");
+    console.error(e);
   }
 }
 
@@ -1693,7 +2189,8 @@ function renderRankingList(type) {
     div.className = "r-card";
     div.dataset.rank = idx + 1;
     div.onclick = () => jumpToProduct(p.id);
-    let img = p.photo && p.photo.length>5 ? `<img src="${p.photo}" class="r-img">` : `<div style="font-size:10px;color:#ccc">無圖</div>`;
+    const safePhoto = escapeHtmlAttr(p.photo);
+    let img = p.photo && p.photo.length>5 ? `<img src="${safePhoto}" data-src="${safePhoto}" class="r-img" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">` : `<div style="font-size:10px;color:#ccc">無圖</div>`;
     div.innerHTML = `<div class="r-img-wrap"><div class="r-badge">${idx+1}</div>${img}</div><div class="r-name">${p.name}</div>`;
     listEl.appendChild(div);
   });
@@ -1858,38 +2355,249 @@ function showChannelToast(text) {
   setTimeout(() => toast.classList.remove("show"), 3300);
 }
 
+function escapeRegExp(text) {
+  return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
-function renderUI(filterText = "") {
+function escapeAttr(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function getTagList(rawTags) {
+  return String(rawTags || '')
+    .split(/,|，/)
+    .map(t => t.trim().replace(/^#/, ''))
+    .filter(Boolean);
+}
+
+function normalizeTag(tag) {
+  return String(tag || '').trim().replace(/^#/, '').toLowerCase();
+}
+
+function productHasTag(product, targetTag) {
+  const target = normalizeTag(targetTag);
+  if (!target) return false;
+  return getTagList(product?.pitch?.tags).some(tag => normalizeTag(tag) === target);
+}
+
+let activeTagFilter = '';
+let tagFilterSourceCardId = '';
+let activeSearchTerm = '';
+let hasSearchHistoryEntry = false;
+let renderJobToken = 0;
+
+function getCurrentRenderFilterText() {
+  return activeTagFilter || activeSearchTerm || '';
+}
+
+function updateRankingVisibility(filterText = '') {
+  const ranking = document.getElementById('ranking-section');
+  if (!ranking) return;
+  ranking.style.display = filterText ? 'none' : (RANKINGS.all.length > 0 ? 'block' : 'none');
+}
+
+function refreshCurrentProductView({ chunked = false } = {}) {
+  const filterText = getCurrentRenderFilterText();
+  renderUI(filterText, { chunked });
+  updateRankingVisibility(filterText);
+}
+
+function reopenProductCard(cardId, scrollIntoView = true) {
+  if (!cardId) return;
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.add('active');
+  const panel = card.querySelector('.p-detail');
+  if (panel) panel.style.maxHeight = panel.scrollHeight + "px";
+  if (scrollIntoView) {
+    card.scrollIntoView({ behavior: 'auto', block: 'center' });
+  }
+}
+
+function restoreFromSearch() {
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
+  const input = document.getElementById('searchInput');
+  if (input) {
+    input.value = '';
+    input.blur();
+  }
+  renderUI('');
+  updateRankingVisibility('');
+}
+
+function restoreFromTagFilter(returnCardId) {
+  activeTagFilter = '';
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
+  const input = document.getElementById('searchInput');
+  if (input) input.value = '';
+  renderUI('');
+  const ranking = document.getElementById("ranking-section");
+  if (ranking) ranking.style.display = 'block';
+  const reopenId = returnCardId || tagFilterSourceCardId;
+  tagFilterSourceCardId = '';
+  reopenProductCard(reopenId, true);
+}
+
+function applyTagFilter(e, tag) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  const sourceCard = e && e.currentTarget ? e.currentTarget.closest('.p-card') : document.querySelector('.p-card.active');
+  tagFilterSourceCardId = sourceCard ? sourceCard.id : '';
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
+  activeTagFilter = String(tag || '').trim().replace(/^#/, '');
+  const input = document.getElementById('searchInput');
+  if (input) input.value = activeTagFilter;
+  history.pushState({page: 'tag-filter', tag: activeTagFilter, returnCardId: tagFilterSourceCardId}, document.title);
+  renderUI(activeTagFilter);
+  updateRankingVisibility(activeTagFilter);
+  const main = document.getElementById('main-container');
+  if (main) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function buildProductCard(p, filterText, activeTagNorm) {
+  const displayName = highlightText(p.name, filterText);
+  let detailContent = "", shareBtnHtml = "";
+  const _vUrl = (p.videoUrl || '').trim();
+  const _moreRaw = (p.moreLinksRaw || '').trim();
+  const _hasVideo = _vUrl.length > 5;
+  const _hasMore = _moreRaw.length > 3;
+  const _sid = safeDomId(p.code);
+  const _isSeen = _hasVideo ? isVideoSeen(p.code, _vUrl) : true;
+  const videoHintHtml = _hasVideo ? `<div class="video-hint ${_isSeen ? 'seen' : 'new'}" id="vh-${_sid}"><span class="material-icons-round">play_arrow</span></div>` : ``;
+  const playBtnHtml = _hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : ``;
+  const moreBtnHtml = _hasMore ? `<div class="btn-media btn-more" id="btn-more-${_sid}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ``;
+
+  let stickerHtml = "";
+  if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
+    const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
+    promos.forEach(pr => {
+      if (isPromoActive(pr)) {
+        stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+      }
+    });
+  }
+
+  if (p.pitch) {
+    let tagsHtml = "";
+    if (p.pitch.tags) {
+      tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
+        const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
+        return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
+      }).join('') + `</div>`;
+    }
+    detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlightText(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
+
+    const shareText = `【 ✨ 產品推薦 】
+🌿 ${p.name}
+-------------------
+💬 主打：${p.pitch.title || ''}
+📝 特色：${p.pitch.content || ''}
+💰 優惠價：$${p.price.toLocaleString()}
+${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}
+-------------------
+(台酒生技)`;
+    shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
+  } else {
+    detailContent = `<div class="no-data">尚無詳細資料</div>`;
+  }
+
+  let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
+  if (p.photo && p.photo.length > 5) {
+    const safePhotoAttr = escapeHtmlAttr(p.photo);
+    const photoJs = JSON.stringify(p.photo);
+    imgHtml = `
+      <div class="p-img-box" onclick='onProductImageClick(event, ${photoJs})'>
+      <img src="${safePhotoAttr}" data-src="${safePhotoAttr}" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">
+      ${videoHintHtml}
+      <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
+      </div>
+    `;
+  }
+
+  let newBadgeHtml = "";
+  if (p.pitch && p.pitch.isNew) {
+    newBadgeHtml = `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`;
+  }
+
+  const card = document.createElement("div");
+  card.className = "p-card";
+  card.id = p.id;
+  card.onclick = () => toggleAccordion(card);
+
+  card.innerHTML = `
+    ${newBadgeHtml}
+    <div class="p-header">
+      ${imgHtml}
+      <div class="p-basic-info">
+        <div class="p-code">${highlightText(p.code, filterText)}</div>
+        <div class="p-name">${displayName}${stickerHtml}</div>
+        <div class="p-spec">${p.spec || ''}</div>
+        <div class="p-price-row"><div class="p-price">${p.price.toLocaleString()}</div><span class="material-icons-round p-arrow">expand_more</span></div>
+      </div>
+    </div>
+    <div class="p-detail"><div class="p-detail-inner">${detailContent}${(moreBtnHtml||playBtnHtml||shareBtnHtml)?`<div class="p-actions">${playBtnHtml}${moreBtnHtml}${shareBtnHtml}</div>`:''}</div></div>
+  `;
+
+  return card;
+}
+
+function appendProductCardsBatch(grid, items, startIndex, batchSize, filterText, activeTagNorm) {
+  const frag = document.createDocumentFragment();
+  const endIndex = Math.min(startIndex + batchSize, items.length);
+  for (let i = startIndex; i < endIndex; i++) {
+    frag.appendChild(buildProductCard(items[i], filterText, activeTagNorm));
+  }
+  grid.appendChild(frag);
+  return endIndex;
+}
+
+function highlightText(text, term) {
+  if (!term) return text;
+  const re = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+  return String(text).replace(re, '<mark class="highlight">$1</mark>');
+}
+
+function renderUI(filterText = "", options = {}) {
+  const { chunked = false, firstBatch = 12, chunkSize = 12 } = options || {};
+  const renderToken = ++renderJobToken;
   const container = document.getElementById("main-container");
   const nav = document.getElementById("topNav");
+  const activeTagNorm = normalizeTag(activeTagFilter);
+  const sectionJobs = [];
+
   container.querySelectorAll('.cat-section').forEach(e => e.remove());
-  if(!filterText) nav.innerHTML = ""; 
+  if (!filterText) nav.innerHTML = "";
 
   document.getElementById('search-clear').style.display = filterText ? 'block' : 'none';
 
-  const tokens = extractSearchTokens(filterText);
-
   const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
-  const highlight = (text) => highlightTokens(text, tokens);
 
   order.forEach(key => {
     const secData = SECTIONS[key];
-    if(secData.items.length === 0) return;
+    if (secData.items.length === 0) return;
 
     const filteredItems = secData.items.filter(p => {
-      if(!tokens.length) return true;
-      const haystack = [
-        (p.name || '').toLowerCase(),
-        (p.code || '').toLowerCase(),
-        (p.pitch && p.pitch.title ? p.pitch.title.toLowerCase() : ''),
-        (p.pitch && p.pitch.tags ? p.pitch.tags.toLowerCase() : '')
-      ].join(' ');
-      return tokens.every(tok => haystack.includes(tok));
+      if (activeTagNorm) return productHasTag(p, activeTagNorm);
+      if (!filterText) return true;
+      const term = filterText.toLowerCase();
+      const pitchTitle = String(p?.pitch?.title || '').toLowerCase();
+      const pitchTags = String(p?.pitch?.tags || '').toLowerCase();
+      return p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) ||
+             pitchTitle.includes(term) || pitchTags.includes(term);
     });
 
-    if(filteredItems.length === 0) return; 
+    if (filteredItems.length === 0) return;
 
-    if(!filterText) {
+    if (!filterText) {
       const pill = document.createElement("div");
       pill.className = "nav-pill";
       pill.innerHTML = `<span class="material-icons-round" style="font-size:14px">${secData.icon}</span> ${secData.title}`;
@@ -1904,150 +2612,102 @@ function renderUI(filterText = "") {
 
     const grid = document.createElement("div");
     grid.className = "grid-layout";
-
-    filteredItems.forEach((p, index) => {
-      const displayName = highlight(p.name);
-      let detailContent = "", shareBtnHtml = "";
-      // [預設計擴充] 商品影音/更多素材：跟著商品走（資料來自 Products 的 videoUrl / moreLinksRaw）
-      const _vUrl = (p.videoUrl || '').trim();
-      const _moreRaw = (p.moreLinksRaw || '').trim();
-      const _hasVideo = _vUrl.length > 5;
-      const _hasMore = _moreRaw.length > 3;
-      const _sid = safeDomId(p.code);
-      const _isSeen = _hasVideo ? isVideoSeen(p.code, _vUrl) : true;
-      const videoHintHtml = _hasVideo ? `<div class="video-hint ${_isSeen ? 'seen' : 'new'}" id="vh-${_sid}"><span class="material-icons-round">play_arrow</span></div>` : ``;
-      const playBtnHtml = _hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : ``;
-      const moreBtnHtml = _hasMore ? `<div class="btn-media btn-more" id="btn-more-${_sid}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ``;
-      
-      let stickerHtml = "";
-      if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
-        const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
-        promos.forEach(pr => {
-          if(isPromoActive(pr)) {
-            stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
-          }
-        });
-      }
-      
-      if (p.pitch) {
-        let tagsHtml = "";
-        if(p.pitch.tags) tagsHtml = `<div class="pitch-tags">` + p.pitch.tags.split(/,|，/).map(t => `<span class="tag">#${highlight(t.trim())}</span>`).join('') + `</div>`;
-        detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlight(p.pitch.title)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
-        
-        const shareText = `【 ✨ 產品推薦 】\n🌿 ${p.name}\n-------------------\n💬 主打：${p.pitch.title || ''}\n📝 特色：${p.pitch.content || ''}\n💰 優惠價：$${p.price.toLocaleString()}\n${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}\n-------------------\n(台酒生技)`;
-        shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
-      } else {
-        detailContent = `<div class="no-data">尚無詳細資料</div>`;
-      }
-
-      let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
-      if(p.photo && p.photo.length > 5) {
-        const eager = index < 6;
-        const loadingAttr = eager ? 'eager' : 'lazy';
-        const fetchPri = eager ? 'high' : 'auto';
-        const safePhoto = String(p.photo).replace(/'/g, "&#39;");
-        imgHtml = `
-          <div class="p-img-box" onclick="onProductImageClick(event, '${safePhoto}')">
-          <img src="${safePhoto}" loading="${loadingAttr}" fetchpriority="${fetchPri}" onerror="if(!this.dataset.retry1){this.dataset.retry1=1;setTimeout(()=>{this.src='${safePhoto}?retry1='+Date.now()},400);}else if(!this.dataset.retry2){this.dataset.retry2=1;setTimeout(()=>{this.src='${safePhoto}?retry2='+Date.now()},1200);}">
-          ${videoHintHtml}
-          <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
-          </div>
-        `;
-      }
-      
-      let newBadgeHtml = "";
-      if(p.pitch && p.pitch.isNew) {
-        newBadgeHtml = `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`;
-      }
-
-      const card = document.createElement("div");
-      card.className = "p-card";
-      card.id = p.id; 
-      card.onclick = (e) => toggleAccordion(card);
-      
-      card.innerHTML = `
-        ${newBadgeHtml}
-        <div class="p-header">
-          ${imgHtml}
-          <div class="p-basic-info">
-            <div class="p-code">${highlight(p.code)}</div>
-            <div class="p-name">${displayName}${stickerHtml}</div>
-            <div class="p-spec">${p.spec || ''}</div>
-            <div class="p-price-row"><div class="p-price">${p.price.toLocaleString()}</div><span class="material-icons-round p-arrow">expand_more</span></div>
-          </div>
-        </div>
-        <div class="p-detail"><div class="p-detail-inner">${detailContent}${(moreBtnHtml||playBtnHtml||shareBtnHtml)?`<div class="p-actions">${playBtnHtml}${moreBtnHtml}${shareBtnHtml}</div>`:''}</div></div>
-      `;
-      grid.appendChild(card);
-    });
     section.appendChild(grid);
     container.appendChild(section);
+    sectionJobs.push({ grid, items: filteredItems });
   });
-  
-  if(!filterText && nav.children.length > 0) nav.children[0].classList.add('active');
+
+  if (!filterText && nav.children.length > 0) nav.children[0].classList.add('active');
   setupScrollSpy();
+
+  if (!chunked) {
+    sectionJobs.forEach(job => {
+      appendProductCardsBatch(job.grid, job.items, 0, job.items.length, filterText, activeTagNorm);
+    });
+    if (renderToken === renderJobToken) setupScrollSpy();
+    return;
+  }
+
+  const queue = [];
+  sectionJobs.forEach(job => {
+    const nextIndex = appendProductCardsBatch(job.grid, job.items, 0, Math.min(firstBatch, job.items.length), filterText, activeTagNorm);
+    if (nextIndex < job.items.length) {
+      queue.push({ grid: job.grid, items: job.items, index: nextIndex });
+    }
+  });
+
+  if (!queue.length) {
+    if (renderToken === renderJobToken) setupScrollSpy();
+    return;
+  }
+
+  const pump = () => {
+    if (renderToken !== renderJobToken) return;
+
+    let remainingBudget = chunkSize;
+    while (queue.length && remainingBudget > 0) {
+      const job = queue.shift();
+      const nextIndex = appendProductCardsBatch(job.grid, job.items, job.index, remainingBudget, filterText, activeTagNorm);
+      remainingBudget -= (nextIndex - job.index);
+      if (nextIndex < job.items.length) {
+        job.index = nextIndex;
+        queue.push(job);
+      }
+    }
+
+    if (queue.length) {
+      requestAnimationFrame(pump);
+    } else if (renderToken === renderJobToken) {
+      setupScrollSpy();
+    }
+  };
+
+  requestAnimationFrame(pump);
 }
 
 let searchTimeout;
 function handleSearch(val) {
+  activeTagFilter = '';
+  tagFilterSourceCardId = '';
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
-    renderUI(val.trim());
-    document.getElementById("ranking-section").style.display = val ? 'none' : 'block';
+    const keyword = String(val || '').trim();
+    const input = document.getElementById('searchInput');
+    if (input && input.value !== keyword) input.value = keyword;
+
+    if (keyword && !hasSearchHistoryEntry) {
+      history.pushState({page: 'search', q: keyword}, document.title);
+      hasSearchHistoryEntry = true;
+    } else if (keyword && hasSearchHistoryEntry && history.state && history.state.page === 'search') {
+      history.replaceState({page: 'search', q: keyword}, document.title);
+    }
+
+    if (!keyword) {
+      hasSearchHistoryEntry = false;
+    }
+
+    activeSearchTerm = keyword;
+    renderUI(keyword);
+    updateRankingVisibility(keyword);
   }, 300);
 }
 
 function clearSearch() {
+  activeTagFilter = '';
+  tagFilterSourceCardId = '';
+  activeSearchTerm = '';
+  hasSearchHistoryEntry = false;
   document.getElementById('searchInput').value = '';
   handleSearch('');
-  document.getElementById('searchInput').focus(); // Keep focus or blur as needed
-}
-
-function _escRegExp(str) {
-  return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-function extractSearchTokens(q) {
-  return String(q || '').toLowerCase().split(/[ ,，+　]+/).map(s => s.trim()).filter(Boolean);
-}
-function highlightTokens(text, tokens) {
-  if (!text) return text;
-  if (!tokens || !tokens.length) return text;
-  let out = String(text);
-  tokens.forEach(tok => {
-    const re = new RegExp('(' + _escRegExp(tok) + ')', 'gi');
-    out = out.replace(re, '<mark class="highlight">$1</mark>');
-  });
-  return out;
-}
-function getYouTubeID(url) {
-  const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : null;
-}
-function isVerticalYouTubeUrl(url) {
-  return /youtube\.com\/shorts\//i.test(String(url || ''));
-}
-function openYouTubeOverlay(videoUrl) {
-  const vid = getYouTubeID(videoUrl);
-  if (!vid) { openInNewTab(videoUrl); return; }
-  const overlay = document.getElementById('videoOverlay');
-  const container = document.getElementById('videoContainer');
-  if (!overlay || !container) { openInNewTab(videoUrl); return; }
-  container.classList.toggle('vertical', isVerticalYouTubeUrl(videoUrl));
-  container.innerHTML = `<iframe src="https://www.youtube.com/embed/${vid}?autoplay=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-  overlay.classList.add('open');
-  history.pushState({modal:'video-overlay'}, document.title);
-}
-function closeVideoOverlay(ev) {
-  if (ev && ev.target && ev.target.closest('.video-container') && !ev.target.classList.contains('video-close')) return;
-  const overlay = document.getElementById('videoOverlay');
-  const container = document.getElementById('videoContainer');
-  if (overlay) overlay.classList.remove('open');
-  if (container) { container.innerHTML = ''; container.classList.remove('vertical'); }
-  if (history.state && history.state.modal === 'video-overlay') history.back();
+  document.getElementById('searchInput').blur();
 }
 
 function onProductImageClick(e, src) {
-  const card = e.currentTarget.closest('.p-card');
+  const box = e.currentTarget;
+  const img = box ? box.querySelector('img') : null;
+  if (box && box.classList.contains('is-fallback')) return;
+  if (img && img.classList.contains('img-fallback')) return;
+  const card = box.closest('.p-card');
   if (card.classList.contains('active')) {
     e.stopPropagation();
     openLightbox(e, src);
@@ -2216,8 +2876,39 @@ function closePromoModal() {
   history.back();
 }
 
+function ensurePromoVisibleInList(promoId) {
+  const promo = PROMO_MAP.get(promoId);
+  if (!promo) return;
+
+  const targetStatus = isPromoActive(promo) ? 'active' : 'expired';
+  const targetCats = getPromoCategories(promo);
+  let shouldRender = false;
+
+  if (currentPromoStatus !== targetStatus) {
+    currentPromoStatus = targetStatus;
+    shouldRender = true;
+  }
+
+  if (selectedPromoCats.size > 0) {
+    const hasIntersection = targetCats.some(c => selectedPromoCats.has(c));
+    if (!hasIntersection) {
+      selectedPromoCats.clear();
+      shouldRender = true;
+    }
+  }
+
+  document.getElementById('st-active').classList.toggle('active', currentPromoStatus === 'active');
+  document.getElementById('st-expired').classList.toggle('active', currentPromoStatus === 'expired');
+  updateCatUI();
+
+  if (shouldRender) renderPromotions();
+}
+
 function goToPromoDetail(promoId) {
-  event.stopPropagation();
+  if (typeof event !== 'undefined' && event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  ensurePromoVisibleInList(promoId);
   showPromoView(promoId);
   setTimeout(() => openPromoModal(promoId), 500); 
 }
