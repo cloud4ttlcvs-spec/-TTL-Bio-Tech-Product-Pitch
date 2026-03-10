@@ -1498,10 +1498,10 @@ function isVerticalYouTubeUrl(url) {
   if (!u) return false;
   try {
     const parsed = new URL(u);
-    const host = (parsed.hostname || '').toLowerCase();
-    if (!host.includes('youtube.com')) return false;
-    const parts = (parsed.pathname || '').split('/').filter(Boolean);
-    return parts.includes('shorts');
+    const host = (parsed.hostname || "").toLowerCase();
+    if (!host.includes("youtube.com")) return false;
+    const parts = (parsed.pathname || "").split("/").filter(Boolean);
+    return parts.includes("shorts");
   } catch (e) {}
   return /youtube\.com\/shorts\//i.test(u);
 }
@@ -2580,7 +2580,7 @@ function appendProductCardsBatch(grid, items, startIndex, batchSize, filterText,
 
 function extractSearchTokens(term) {
   return Array.from(new Set(
-    String(term || '')
+    String(term || "")
       .split(/[\s,，+]+/)
       .map(s => s.trim().toLowerCase())
       .filter(Boolean)
@@ -2593,7 +2593,7 @@ function highlightText(text, term) {
   const pattern = tokens
     .sort((a, b) => b.length - a.length)
     .map(t => escapeRegExp(t))
-    .join('|');
+    .join("|");
   if (!pattern) return text;
   const re = new RegExp(`(${pattern})`, 'gi');
   return String(text).replace(re, '<mark class="highlight">$1</mark>');
@@ -2621,17 +2621,11 @@ function renderUI(filterText = "", options = {}) {
     const filteredItems = secData.items.filter(p => {
       if (activeTagNorm) return productHasTag(p, activeTagNorm);
       if (!filterText) return true;
-      const tokens = extractSearchTokens(filterText);
-      if (!tokens.length) return true;
+      const term = filterText.toLowerCase();
       const pitchTitle = String(p?.pitch?.title || '').toLowerCase();
       const pitchTags = String(p?.pitch?.tags || '').toLowerCase();
-      const haystack = [
-        String(p?.name || '').toLowerCase(),
-        String(p?.code || '').toLowerCase(),
-        pitchTitle,
-        pitchTags
-      ].join(' ');
-      return tokens.every(token => haystack.includes(token));
+      return p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) ||
+             pitchTitle.includes(term) || pitchTags.includes(term);
     });
 
     if (filteredItems.length === 0) return;
