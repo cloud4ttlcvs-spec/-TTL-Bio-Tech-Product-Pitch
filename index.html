@@ -493,6 +493,9 @@ body.large-mode .vm-close{ width:44px; height:44px; }
 .vm-ratio{
   position:relative; width:100%; padding-top:56.25%;
 }
+.vm-ratio.vertical{
+  width:min(100%, 420px); margin:0 auto; padding-top:177.78%;
+}
 .vm-ratio > iframe,
 .vm-ratio > video,
 .vm-ratio > .vm-fallback{
@@ -1493,10 +1496,12 @@ function getYouTubeVideoId(url) {
 function getInlineVideoPayload(url) {
   const u = normalizeUrl(url);
   if (!u) return null;
+  const isVertical = /youtube\.com\/shorts\//i.test(u);
   const ytId = getYouTubeVideoId(u);
   if (ytId) {
     return {
       kind: 'youtube',
+      isVertical,
       embedUrl: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(ytId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
     };
   }
@@ -1596,7 +1601,8 @@ function openVideoModal(code, productName, rawUrl, payload) {
   noteEl.textContent = '站內播放可直接關閉回到原商品；若偏好使用 YouTube / 外部播放器，也可點右上角外部開啟。';
 
   if (payload.kind === 'youtube') {
-    playerEl.innerHTML = `<div class="vm-ratio"><iframe src="${escapeAttr(payload.embedUrl)}" title="商品影片" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+    const ratioClass = payload.isVertical ? 'vm-ratio vertical' : 'vm-ratio';
+    playerEl.innerHTML = `<div class="${ratioClass}"><iframe src="${escapeAttr(payload.embedUrl)}" title="商品影片" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
   } else if (payload.kind === 'file') {
     const mimeAttr = payload.mime ? ` type="${escapeAttr(payload.mime)}"` : '';
     playerEl.innerHTML = `<div class="vm-ratio"><video controls playsinline webkit-playsinline preload="metadata" src="${escapeAttr(payload.src)}"${mimeAttr}></video></div>`;
@@ -2587,12 +2593,12 @@ function renderUI(filterText = "", options = {}) {
 
     const filteredItems = secData.items.filter(p => {
       if (activeTagNorm) return productHasTag(p, activeTagNorm);
-      if (!filterText) return true;
-      const term = filterText.toLowerCase();
+      const tokens = String(filterText || '').toLowerCase().split(/[ ,，+　]+/).filter(Boolean);
+      if (!tokens.length) return true;
       const pitchTitle = String(p?.pitch?.title || '').toLowerCase();
       const pitchTags = String(p?.pitch?.tags || '').toLowerCase();
-      return p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) ||
-             pitchTitle.includes(term) || pitchTags.includes(term);
+      const haystack = [p.name || '', p.code || '', pitchTitle, pitchTags].join(' ').toLowerCase();
+      return tokens.every(term => haystack.includes(term));
     });
 
     if (filteredItems.length === 0) return;
