@@ -1157,11 +1157,29 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 // --- SPLASH & iOS PROMPT LOGIC ---
 const LOADER_HINT_DELAY_MS = 15000;
 const LOADER_SLOW_HINT_MS = 8000;
+const LOADER_MIN_VISIBLE_MS = 860;
+const LOADER_COMPLETE_HOLD_MS = 240;
+const LOADER_STAGE_FLOW = ['boot', 'connect', 'fallback', 'parse', 'render', 'final'];
+const LOADER_STAGE_MIN_MS = {
+  boot: 160,
+  connect: 220,
+  fallback: 220,
+  parse: 180,
+  render: 220,
+  final: 170,
+  complete: 160
+};
 let loaderHintTimer = null;
 let loaderSlowTimer = null;
 let loaderProgress = 0;
 let loaderProgressTarget = 0;
 let loaderProgressTimer = null;
+let loaderUiRevealed = false;
+let loaderUiVisibleAt = 0;
+let loaderDisplayedStageKey = 'boot';
+let loaderRequestedStageKey = 'boot';
+let loaderStageDisplayedAt = 0;
+let loaderStageRunner = null;
 
 const LOADER_STAGE_CONFIG = {
   boot:     { pct: 12, step: 0, text: '啟動系統…' },
@@ -1172,6 +1190,10 @@ const LOADER_STAGE_CONFIG = {
   final:    { pct: 92, step: 4, text: '即將完成…' },
   complete: { pct:100, step: 4, text: '載入完成' }
 };
+const LOADER_STAGE_RANK = LOADER_STAGE_FLOW.reduce((acc, key, idx) => {
+  acc[key] = idx;
+  return acc;
+}, { complete: LOADER_STAGE_FLOW.length });
 
 function isLoaderActive() {
   const loader = document.getElementById('loader');
@@ -1196,6 +1218,14 @@ function syncLoaderBar() {
   if (bar) bar.style.width = `${Math.max(0, Math.min(100, loaderProgress)).toFixed(1)}%`;
 }
 
+function delay(ms = 0) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getLoaderStageRank(key) {
+  return Object.prototype.hasOwnProperty.call(LOADER_STAGE_RANK, key) ? LOADER_STAGE_RANK[key] : 0;
+}
+
 function ensureLoaderAnimation() {
   if (loaderProgressTimer) return;
   loaderProgressTimer = setInterval(() => {
@@ -1204,12 +1234,73 @@ function ensureLoaderAnimation() {
       loaderProgressTimer = null;
       return;
     }
+    if (!loaderUiRevealed) return;
     if (loaderProgress >= loaderProgressTarget) return;
     const diff = loaderProgressTarget - loaderProgress;
-    const step = diff > 18 ? 2.8 : diff > 8 ? 1.5 : diff > 3 ? 0.8 : 0.35;
+    const step = diff > 18 ? 2.4 : diff > 10 ? 1.35 : diff > 4 ? 0.72 : 0.26;
     loaderProgress = Math.min(loaderProgressTarget, loaderProgress + step);
     syncLoaderBar();
   }, 90);
+}
+
+function applyLoaderStage(key, overrideText = '') {
+  const cfg = LOADER_STAGE_CONFIG[key];
+  if (!cfg) return;
+  loaderDisplayedStageKey = key;
+  loaderStageDisplayedAt = performance.now();
+  loaderProgressTarget = Math.max(loaderProgressTarget, cfg.pct);
+  const stageEl = document.getElementById('loading-stage-text');
+  if (stageEl) stageEl.textContent = overrideText || cfg.text;
+  setLoaderMilestone(cfg.step);
+  ensureLoaderAnimation();
+}
+
+async function flushLoaderStages() {
+  if (loaderStageRunner) return loaderStageRunner;
+  loaderStageRunner = (async () => {
+    while (isLoaderActive() && loaderUiRevealed && getLoaderStageRank(loaderDisplayedStageKey) < getLoaderStageRank(loaderRequestedStageKey)) {
+      const currentKey = loaderDisplayedStageKey;
+      const currentRank = getLoaderStageRank(currentKey);
+      const nextKey = LOADER_STAGE_FLOW[Math.min(currentRank + 1, LOADER_STAGE_FLOW.length - 1)] || loaderRequestedStageKey;
+      const minStay = LOADER_STAGE_MIN_MS[currentKey] || 160;
+      const waited = performance.now() - loaderStageDisplayedAt;
+      if (waited < minStay) {
+        await delay(minStay - waited);
+      }
+      if (!isLoaderActive() || !loaderUiRevealed) break;
+      applyLoaderStage(nextKey);
+    }
+    loaderStageRunner = null;
+  })();
+  return loaderStageRunner;
+}
+
+function revealLoaderUi() {
+  if (loaderUiRevealed) return;
+  loaderUiRevealed = true;
+  loaderUiVisibleAt = performance.now();
+  loaderStageDisplayedAt = performance.now();
+  ensureLoaderAnimation();
+  flushLoaderStages();
+}
+
+async function waitForLoaderReveal(maxWaitMs = 4500) {
+  const startedAt = performance.now();
+  while (!loaderUiRevealed && isLoaderActive() && (performance.now() - startedAt) < maxWaitMs) {
+    await delay(40);
+  }
+}
+
+async function waitForLoaderMinimumVisible() {
+  if (!loaderUiVisibleAt) return;
+  const remain = LOADER_MIN_VISIBLE_MS - (performance.now() - loaderUiVisibleAt);
+  if (remain > 0) await delay(remain);
+}
+
+async function waitForCurrentLoaderStage() {
+  const minStay = LOADER_STAGE_MIN_MS[loaderDisplayedStageKey] || 0;
+  const remain = minStay - (performance.now() - loaderStageDisplayedAt);
+  if (remain > 0) await delay(remain);
 }
 
 function startProgressOverlay() {
@@ -1219,8 +1310,12 @@ function startProgressOverlay() {
   initLoaderMilestones();
   loaderProgress = 0;
   loaderProgressTarget = 6;
+  loaderDisplayedStageKey = 'boot';
+  loaderRequestedStageKey = 'boot';
+  loaderUiVisibleAt = 0;
+  loaderStageDisplayedAt = performance.now();
   syncLoaderBar();
-  setProgressStage('boot');
+  applyLoaderStage('boot');
   ensureLoaderAnimation();
 }
 
@@ -1238,11 +1333,15 @@ function showSlowLoadHint(text = '首次啟動較久，正在接上最新資料�
 function setProgressStage(key, overrideText = '') {
   const cfg = LOADER_STAGE_CONFIG[key];
   if (!cfg) return;
+  if (getLoaderStageRank(key) < getLoaderStageRank(loaderRequestedStageKey)) return;
+  loaderRequestedStageKey = key;
+  if (!loaderUiRevealed) return;
   loaderProgressTarget = Math.max(loaderProgressTarget, cfg.pct);
-  const stageEl = document.getElementById('loading-stage-text');
-  if (stageEl) stageEl.textContent = overrideText || cfg.text;
-  setLoaderMilestone(cfg.step);
-  ensureLoaderAnimation();
+  if (key === loaderDisplayedStageKey) {
+    applyLoaderStage(key, overrideText);
+    return;
+  }
+  flushLoaderStages();
 }
 
 function completeProgressOverlay() {
@@ -1253,6 +1352,8 @@ function completeProgressOverlay() {
   if (stageEl) stageEl.textContent = LOADER_STAGE_CONFIG.complete.text;
   setLoaderMilestone(LOADER_STAGE_CONFIG.complete.step);
   setLoaderHint('主畫面已完成，可開始使用。', true);
+  loaderDisplayedStageKey = 'complete';
+  loaderStageDisplayedAt = performance.now();
 }
 
 function scheduleSlowLoadHint() {
@@ -1283,22 +1384,25 @@ function clearDelayedReloadHint() {
   if (btn) btn.style.display = 'none';
 }
 
-function hideLoader() {
+async function hideLoader() {
   clearDelayedReloadHint();
   const loader = document.getElementById('loader');
-  if (!loader || loader.dataset.done === '1') return;
-  loader.dataset.done = '1';
+  if (!loader || loader.dataset.done === '1' || loader.dataset.closing === '1') return;
+  loader.dataset.closing = '1';
+  await waitForLoaderReveal();
+  await flushLoaderStages();
+  await waitForCurrentLoaderStage();
+  await waitForLoaderMinimumVisible();
   completeProgressOverlay();
-  setTimeout(() => {
-    loader.classList.add('is-exiting');
-  }, 60);
-  setTimeout(() => {
-    if (loaderProgressTimer) {
-      clearInterval(loaderProgressTimer);
-      loaderProgressTimer = null;
-    }
-    if (loader && loader.parentNode) loader.remove();
-  }, 720);
+  await delay(LOADER_COMPLETE_HOLD_MS);
+  loader.dataset.done = '1';
+  loader.classList.add('is-exiting');
+  await delay(660);
+  if (loaderProgressTimer) {
+    clearInterval(loaderProgressTimer);
+    loaderProgressTimer = null;
+  }
+  if (loader && loader.parentNode) loader.remove();
 }
 
 window.addEventListener('load', () => {
@@ -1308,10 +1412,12 @@ window.addEventListener('load', () => {
       splash.classList.add('hidden');
       setTimeout(() => {
         splash.style.display = 'none';
+        revealLoaderUi();
         scheduleSlowLoadHint();
         scheduleDelayedReloadHint();
       }, 600);
     } else {
+      revealLoaderUi();
       scheduleSlowLoadHint();
       scheduleDelayedReloadHint();
     }
@@ -2342,7 +2448,7 @@ async function init() {
     await nextFrame();
     setProgressStage('final');
     showMainView(false);
-    hideLoader();
+    await hideLoader();
     queueDeferredAuxData();
   } catch (e) {
     alert("讀取資料失敗，請稍後重試");
@@ -2847,7 +2953,9 @@ function renderUI(filterText = "", options = {}) {
   container.querySelectorAll('.cat-section').forEach(e => e.remove());
   if (!filterText) nav.innerHTML = "";
 
-  document.getElementById('search-clear').style.display = filterText ? 'block' : 'none';
+  const searchInputEl = document.getElementById('searchInput');
+  const rawSearchValue = searchInputEl ? String(searchInputEl.value || '') : '';
+  document.getElementById('search-clear').style.display = (rawSearchValue || filterText) ? 'block' : 'none';
 
   const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
 
@@ -2939,11 +3047,14 @@ let searchTimeout;
 function handleSearch(val) {
   activeTagFilter = '';
   tagFilterSourceCardId = '';
+  const rawValue = String(val ?? '');
+  const clearBtn = document.getElementById('search-clear');
+  if (clearBtn) clearBtn.style.display = rawValue ? 'block' : 'none';
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
-    const keyword = String(val || '').trim();
     const input = document.getElementById('searchInput');
-    if (input && input.value !== keyword) input.value = keyword;
+    const liveValue = input ? String(input.value ?? rawValue) : rawValue;
+    const keyword = liveValue.trim();
 
     if (keyword && !hasSearchHistoryEntry) {
       history.pushState({page: 'search', q: keyword}, document.title);
@@ -2968,6 +3079,8 @@ function clearSearch() {
   activeSearchTerm = '';
   hasSearchHistoryEntry = false;
   document.getElementById('searchInput').value = '';
+  const clearBtn = document.getElementById('search-clear');
+  if (clearBtn) clearBtn.style.display = 'none';
   handleSearch('');
   document.getElementById('searchInput').blur();
 }
