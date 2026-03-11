@@ -13,7 +13,6 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <style>
 /* --- CORE VARIABLES --- */
@@ -790,18 +789,80 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer;
 }
 
-#loader { position: fixed; inset: 0; background: #fff; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
-.loader-spin { width: 40px; height: 40px; border: 4px solid #eceff1; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
-@keyframes spin { to { transform: rotate(360deg); } }
+#loader {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(248, 249, 250, 0.34);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  transition: opacity 0.55s ease, visibility 0.55s ease;
+}
+#loader.is-exiting { opacity: 0; visibility: hidden; pointer-events: none; }
+.loader-card {
+  width: min(90vw, 340px);
+  padding: 22px 20px 18px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.74);
+  border: 1px solid rgba(255,255,255,0.55);
+  box-shadow: 0 22px 50px rgba(38,50,56,0.12), 0 8px 22px rgba(0,0,0,0.06);
+  text-align: center;
+}
+.loader-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(0,137,123,0.10); color: var(--primary);
+  font-size: 12px; font-weight: 800; letter-spacing: .4px;
+}
+.loader-chip .material-icons-round { font-size: 16px; }
+.loader-title {
+  margin-top: 14px;
+  font-size: 17px; font-weight: 900; color: #37474f; letter-spacing: .3px;
+}
+.loader-subtitle {
+  margin-top: 6px; font-size: 12px; color: #78909c; line-height: 1.5;
+}
+.loader-progress-shell {
+  width: 100%; height: 8px; margin-top: 18px;
+  background: rgba(144,164,174,0.18); border-radius: 999px; overflow: hidden;
+}
+.loader-progress-bar {
+  width: 0%; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, #80cbc4 0%, var(--primary) 55%, #26a69a 100%);
+  box-shadow: 0 0 14px rgba(0,137,123,0.20);
+  transition: width 0.18s ease-out;
+}
+.loader-milestones {
+  display: flex; justify-content: space-between; gap: 8px;
+  width: 100%; margin-top: 12px;
+}
+.loader-milestone-dot {
+  flex: 1 1 auto; height: 7px; border-radius: 999px;
+  background: rgba(144,164,174,0.18);
+  transition: background-color .25s ease, transform .25s ease, box-shadow .25s ease;
+}
+.loader-milestone-dot.active {
+  background: rgba(0,137,123,0.85);
+  transform: scaleY(1.08);
+  box-shadow: 0 0 0 3px rgba(0,137,123,0.08);
+}
+.loader-stage-text {
+  margin-top: 14px;
+  font-size: 14px; font-weight: 800; color: #37474f;
+}
+.loader-hint-text {
+  min-height: 18px; margin-top: 8px;
+  font-size: 12px; color: #78909c; line-height: 1.4;
+  opacity: 0; transform: translateY(4px); transition: opacity .25s ease, transform .25s ease;
+}
+.loader-hint-text.show { opacity: 1; transform: translateY(0); }
 @keyframes flashHighlight { 50% { border-color: #ffd700; box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.3); } }
 .flash-highlight { animation: flashHighlight 1.2s ease-in-out; }
 
 /* ERROR BUTTON */
 .loader-error-btn {
   display: none;
-  margin-top: 15px; padding: 10px 20px; background: #d32f2f; color: white;
-  border: none; border-radius: 25px; font-weight: bold; cursor: pointer;
-  box-shadow: 0 4px 10px rgba(211, 47, 47, 0.3);
+  margin-top: 14px; padding: 10px 18px; background: #d32f2f; color: white;
+  border: none; border-radius: 999px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.24);
   animation: fadeIn 0.5s;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -877,10 +938,17 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   </div>
 </div>
 
-<div id="loader">
-  <div class="loader-spin"></div>
-  <div style="color:#546e7a;font-weight:700;font-size:12px">資料載入中...</div>
-  <button class="loader-error-btn" id="btn-force-reload" onclick="forceClearCache()">載入太久？點此重整</button>
+<div id="loader" aria-live="polite" aria-busy="true">
+  <div class="loader-card">
+    <div class="loader-chip"><span class="material-icons-round">auto_awesome</span> 台酒生技</div>
+    <div class="loader-title">正在準備銷售支援內容</div>
+    <div class="loader-subtitle">首次啟動時，系統會先同步主資料並建立商品卡。</div>
+    <div class="loader-progress-shell"><div id="loading-bar" class="loader-progress-bar"></div></div>
+    <div class="loader-milestones" id="loader-milestones"></div>
+    <div class="loader-stage-text" id="loading-stage-text">啟動系統…</div>
+    <div class="loader-hint-text" id="loading-hint-text">首次啟動可能稍久，請稍候。</div>
+    <button class="loader-error-btn" id="btn-force-reload" onclick="forceClearCache()">載入太久？點此重整</button>
+  </div>
 </div>
 
 <div class="sticky-header-group">
@@ -1088,23 +1156,129 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 <script>
 // --- SPLASH & iOS PROMPT LOGIC ---
 const LOADER_HINT_DELAY_MS = 15000;
+const LOADER_SLOW_HINT_MS = 8000;
 let loaderHintTimer = null;
+let loaderSlowTimer = null;
+let loaderProgress = 0;
+let loaderProgressTarget = 0;
+let loaderProgressTimer = null;
+
+const LOADER_STAGE_CONFIG = {
+  boot:     { pct: 12, step: 0, text: '啟動系統…' },
+  connect:  { pct: 45, step: 1, text: '正在同步商品主資料…' },
+  fallback: { pct: 52, step: 1, text: '主資料連線異常，切換備援來源…' },
+  parse:    { pct: 70, step: 2, text: '正在解析商品內容…' },
+  render:   { pct: 88, step: 3, text: '正在建立商品卡片…' },
+  final:    { pct: 92, step: 4, text: '即將完成…' },
+  complete: { pct:100, step: 4, text: '載入完成' }
+};
+
+function isLoaderActive() {
+  const loader = document.getElementById('loader');
+  return !!(loader && !loader.dataset.done && !loader.classList.contains('is-exiting'));
+}
+
+function initLoaderMilestones() {
+  const wrap = document.getElementById('loader-milestones');
+  if (!wrap || wrap.dataset.ready === '1') return;
+  wrap.dataset.ready = '1';
+  wrap.innerHTML = Array.from({ length: 5 }, () => '<span class="loader-milestone-dot"></span>').join('');
+}
+
+function setLoaderMilestone(stepIndex) {
+  document.querySelectorAll('#loader-milestones .loader-milestone-dot').forEach((dot, idx) => {
+    dot.classList.toggle('active', idx <= stepIndex);
+  });
+}
+
+function syncLoaderBar() {
+  const bar = document.getElementById('loading-bar');
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, loaderProgress)).toFixed(1)}%`;
+}
+
+function ensureLoaderAnimation() {
+  if (loaderProgressTimer) return;
+  loaderProgressTimer = setInterval(() => {
+    if (!isLoaderActive()) {
+      clearInterval(loaderProgressTimer);
+      loaderProgressTimer = null;
+      return;
+    }
+    if (loaderProgress >= loaderProgressTarget) return;
+    const diff = loaderProgressTarget - loaderProgress;
+    const step = diff > 18 ? 2.8 : diff > 8 ? 1.5 : diff > 3 ? 0.8 : 0.35;
+    loaderProgress = Math.min(loaderProgressTarget, loaderProgress + step);
+    syncLoaderBar();
+  }, 90);
+}
+
+function startProgressOverlay() {
+  const loader = document.getElementById('loader');
+  if (!loader || loader.dataset.started === '1') return;
+  loader.dataset.started = '1';
+  initLoaderMilestones();
+  loaderProgress = 0;
+  loaderProgressTarget = 6;
+  syncLoaderBar();
+  setProgressStage('boot');
+  ensureLoaderAnimation();
+}
+
+function setLoaderHint(text = '', visible = false) {
+  const el = document.getElementById('loading-hint-text');
+  if (!el) return;
+  if (text) el.textContent = text;
+  el.classList.toggle('show', !!visible);
+}
+
+function showSlowLoadHint(text = '首次啟動較久，正在接上最新資料…') {
+  setLoaderHint(text, true);
+}
+
+function setProgressStage(key, overrideText = '') {
+  const cfg = LOADER_STAGE_CONFIG[key];
+  if (!cfg) return;
+  loaderProgressTarget = Math.max(loaderProgressTarget, cfg.pct);
+  const stageEl = document.getElementById('loading-stage-text');
+  if (stageEl) stageEl.textContent = overrideText || cfg.text;
+  setLoaderMilestone(cfg.step);
+  ensureLoaderAnimation();
+}
+
+function completeProgressOverlay() {
+  loaderProgressTarget = 100;
+  loaderProgress = Math.max(loaderProgress, 100);
+  syncLoaderBar();
+  const stageEl = document.getElementById('loading-stage-text');
+  if (stageEl) stageEl.textContent = LOADER_STAGE_CONFIG.complete.text;
+  setLoaderMilestone(LOADER_STAGE_CONFIG.complete.step);
+  setLoaderHint('主畫面已完成，可開始使用。', true);
+}
+
+function scheduleSlowLoadHint() {
+  clearTimeout(loaderSlowTimer);
+  setLoaderHint('首次啟動可能稍久，請稍候。', false);
+  loaderSlowTimer = setTimeout(() => {
+    if (isLoaderActive()) showSlowLoadHint();
+  }, LOADER_SLOW_HINT_MS);
+}
 
 function scheduleDelayedReloadHint() {
   clearTimeout(loaderHintTimer);
   const btn = document.getElementById('btn-force-reload');
   if (btn) btn.style.display = 'none';
   loaderHintTimer = setTimeout(() => {
-    const loader = document.getElementById('loader');
-    if (loader && loader.style.opacity !== '0' && !loader.dataset.done) {
-      if (btn) btn.style.display = 'block';
-    }
+    if (!isLoaderActive()) return;
+    if (btn) btn.style.display = 'inline-flex';
+    showSlowLoadHint('首次啟動較久，若長時間未完成可嘗試重新整理。');
   }, LOADER_HINT_DELAY_MS);
 }
 
 function clearDelayedReloadHint() {
   clearTimeout(loaderHintTimer);
+  clearTimeout(loaderSlowTimer);
   loaderHintTimer = null;
+  loaderSlowTimer = null;
   const btn = document.getElementById('btn-force-reload');
   if (btn) btn.style.display = 'none';
 }
@@ -1112,12 +1286,19 @@ function clearDelayedReloadHint() {
 function hideLoader() {
   clearDelayedReloadHint();
   const loader = document.getElementById('loader');
-  if (!loader) return;
+  if (!loader || loader.dataset.done === '1') return;
   loader.dataset.done = '1';
-  loader.style.opacity = 0;
+  completeProgressOverlay();
   setTimeout(() => {
+    loader.classList.add('is-exiting');
+  }, 60);
+  setTimeout(() => {
+    if (loaderProgressTimer) {
+      clearInterval(loaderProgressTimer);
+      loaderProgressTimer = null;
+    }
     if (loader && loader.parentNode) loader.remove();
-  }, 500);
+  }, 720);
 }
 
 window.addEventListener('load', () => {
@@ -1127,9 +1308,11 @@ window.addEventListener('load', () => {
       splash.classList.add('hidden');
       setTimeout(() => {
         splash.style.display = 'none';
+        scheduleSlowLoadHint();
         scheduleDelayedReloadHint();
       }, 600);
     } else {
+      scheduleSlowLoadHint();
       scheduleDelayedReloadHint();
     }
     
@@ -1311,6 +1494,28 @@ async function fetchJsonSmart(sourceUrl, { label = "json", required = true, time
   }
 }
 
+let papaLoadPromise = null;
+function ensurePapaParse() {
+  if (window.Papa && typeof window.Papa.parse === 'function') return Promise.resolve(window.Papa);
+  if (papaLoadPromise) return papaLoadPromise;
+  papaLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js';
+    script.async = true;
+    script.onload = () => resolve(window.Papa);
+    script.onerror = () => {
+      papaLoadPromise = null;
+      reject(new Error('PapaParse load failed'));
+    };
+    document.head.appendChild(script);
+  });
+  return papaLoadPromise;
+}
+
+function nextFrame() {
+  return new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
+
 function looksLikeHtml(t) {
   if (!t) return false;
   const s = t.trim().slice(0, 300).toLowerCase();
@@ -1338,6 +1543,11 @@ let PROMO_LIST = [];
 let PROMO_MAP = new Map();
 let PRODUCT_TO_PROMO_MAP = new Map();
 let RANKINGS = { all:[], health:[], drinks:[], beauty:[], cleaning:[] };
+let PROMO_READY = false;
+let PROMO_LOADING = false;
+let PROMO_LOAD_FAILED = false;
+let RANK_LOADING = false;
+let deferredAuxQueued = false;
 
 const VIDEO_SEEN_KEY = 'ttl_product_video_seen_v1';
 let VIDEO_SEEN_MAP = (() => {
@@ -2097,17 +2307,19 @@ function parsePromoCsv(csvText) {
 
 async function init() {
   try {
-    const rankPromise = fetchCsvTextSmart(SHEET_RANK, { label: "rank", required: false });
-    const promoPromise = fetchCsvTextSmart(SHEET_PROMO, { label: "promo", required: false });
+    startProgressOverlay();
+    setProgressStage('connect');
 
     let usedMergedFeed = false;
     if (hasConfiguredMergedFeed()) {
       try {
         const mergedFeed = await fetchJsonSmart(MERGED_PRODUCTS_FEED, { label: 'merged-products', required: true, timeoutMs: 12000 });
+        setProgressStage('parse');
         parseMergedProductsFeed(mergedFeed);
         usedMergedFeed = true;
         console.info('[INIT] merged JSON feed loaded');
       } catch (feedErr) {
+        setProgressStage('fallback');
         console.warn('[INIT] merged JSON feed failed, fallback to CSV:', feedErr);
       }
     }
@@ -2117,47 +2329,85 @@ async function init() {
         fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
         fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true })
       ]);
+      await ensurePapaParse();
+      setProgressStage('parse');
       parsePitchCsv(resPitch);
       parseProductsCsv(resProd);
       console.info('[INIT] CSV fallback loaded');
     }
 
     renderPromotions();
+    setProgressStage('render');
     refreshCurrentProductView({ chunked: true });
+    await nextFrame();
+    setProgressStage('final');
     showMainView(false);
     hideLoader();
-
-    Promise.allSettled([rankPromise, promoPromise]).then(results => {
-      const [rankResult, promoResult] = results;
-      let needsProductRefresh = false;
-
-      if (promoResult.status === 'fulfilled' && promoResult.value) {
-        parsePromoCsv(promoResult.value);
-        renderPromotions();
-        needsProductRefresh = true;
-      } else if (promoResult.status === 'rejected') {
-        console.warn('[PROMO] background load failed:', promoResult.reason);
-      }
-
-      if (rankResult.status === 'fulfilled' && rankResult.value) {
-        processRankings(rankResult.value);
-      } else if (rankResult.status === 'rejected') {
-        console.warn('[RANK] background load failed:', rankResult.reason);
-      }
-
-      if (needsProductRefresh) {
-        refreshCurrentProductView();
-      } else {
-        updateRankingVisibility(getCurrentRenderFilterText());
-      }
-    });
+    queueDeferredAuxData();
   } catch (e) {
     alert("讀取資料失敗，請稍後重試");
     console.error(e);
   }
 }
 
+function queueDeferredAuxData() {
+  if (deferredAuxQueued) return;
+  deferredAuxQueued = true;
+  const runner = () => {
+    deferredAuxQueued = false;
+    loadDeferredAuxData().catch(err => console.warn('[AUX] deferred load failed:', err));
+  };
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(runner, { timeout: 1500 });
+  } else {
+    setTimeout(runner, 250);
+  }
+}
+
+async function loadDeferredAuxData() {
+  let needsProductRefresh = false;
+
+  PROMO_LOADING = true;
+  PROMO_LOAD_FAILED = false;
+  renderPromotions();
+  try {
+    const promoCsv = await fetchCsvTextSmart(SHEET_PROMO, { label: 'promo', required: false });
+    if (promoCsv) {
+      await ensurePapaParse();
+      parsePromoCsv(promoCsv);
+      needsProductRefresh = true;
+    }
+  } catch (err) {
+    PROMO_LOAD_FAILED = true;
+    console.warn('[PROMO] deferred load failed:', err);
+  } finally {
+    PROMO_LOADING = false;
+    PROMO_READY = true;
+    renderPromotions();
+    if (needsProductRefresh) {
+      refreshCurrentProductView();
+    }
+  }
+
+  RANK_LOADING = true;
+  try {
+    const rankCsv = await fetchCsvTextSmart(SHEET_RANK, { label: 'rank', required: false });
+    if (rankCsv) {
+      await ensurePapaParse();
+      processRankings(rankCsv);
+    } else {
+      updateRankingVisibility(getCurrentRenderFilterText());
+    }
+  } catch (err) {
+    console.warn('[RANK] deferred load failed:', err);
+    updateRankingVisibility(getCurrentRenderFilterText());
+  } finally {
+    RANK_LOADING = false;
+  }
+}
+
 function processRankings(csvText) {
+
   let rawList = [];
   let processedCodes = new Set();
   Papa.parse(csvText, { header: false }).data.forEach(r => {
@@ -2277,22 +2527,36 @@ function getPromoCategories(promo) {
 
 function renderPromotions() {
   const grid = document.getElementById("promo-grid");
+  if (!grid) return;
   grid.innerHTML = "";
+
+  if (!PROMO_READY && (PROMO_LOADING || deferredAuxQueued)) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:42px 16px;color:#78909c;">
+      <span class="material-icons-round" style="font-size:42px;margin-bottom:10px;color:#b0bec5;">sync</span><br>
+      活動資訊同步中…
+    </div>`;
+    return;
+  }
+
+  if (PROMO_LOAD_FAILED && PROMO_LIST.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:42px 16px;color:#90a4ae;">
+      <span class="material-icons-round" style="font-size:42px;margin-bottom:10px;color:#cfd8dc;">cloud_off</span><br>
+      活動資訊暫時無法同步
+    </div>`;
+    return;
+  }
 
   let hasData = false;
 
   PROMO_LIST.forEach(promo => {
-    // 1. Status Filter (Global Switch)
     const isActive = isPromoActive(promo);
     if (currentPromoStatus === 'active' && !isActive) return;
     if (currentPromoStatus === 'expired' && isActive) return;
 
-    // 2. Category Filter (Multi-Select)
-    // If set is empty (All), pass. If not, check intersection.
     if (selectedPromoCats.size > 0) {
       const pCats = getPromoCategories(promo);
       const intersect = pCats.some(c => selectedPromoCats.has(c));
-      if (!intersect) return; // No match
+      if (!intersect) return;
     }
 
     hasData = true;
@@ -2826,9 +3090,9 @@ function showPromoView(targetId) {
   document.querySelector('.sticky-header-group').style.display = 'none';
   document.getElementById("promo-container").style.display = 'block';
   document.querySelector('.floating-nav').style.display = 'none';
-  // Show Promo Float Nav
   document.getElementById('promo-fab').style.display = 'block';
-  
+
+  if (!PROMO_READY) renderPromotions();
   window.scrollTo({top: 0});
 
   if(targetId) {
