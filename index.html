@@ -1525,12 +1525,43 @@ function handleCatalogImageError(imgEl) {
 }
 
 const TS = Date.now();
-// 升級用：部署 merged-products-feed 的 GAS 後，把網址貼到這裡；未設定時會自動 fallback 到既有 CSV。
-const MERGED_PRODUCTS_FEED = "merged-feed.json"; // Phase A：改由同網域靜態 merged feed 為主，CSV 為備援
-const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
-const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
-const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
-const SHEET_PROMO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEfLugUcwQdHTTu0NZcy2QHyMPvMaPpfU6g_p0MTrw3muXIGn3SPkISSPnbW9ou1GlHzRc6/pub?gid=74407584&single=true&output=csv&t=" + TS;
+const APP_CONFIG = Object.freeze({
+  feed: {
+    mergedProducts: "merged-feed.json"
+  },
+  sheets: {
+    products: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv",
+    pitch: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv",
+    rank: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv",
+    promo: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEfLugUcwQdHTTu0NZcy2QHyMPvMaPpfU6g_p0MTrw3muXIGn3SPkISSPnbW9ou1GlHzRc6/pub?gid=74407584&single=true&output=csv"
+  },
+  timeouts: {
+    mergedPrimary: 5000,
+    productsCritical: 7000,
+    pitchCritical: 7000,
+    promoDeferred: 6500,
+    rankDeferred: 6500
+  }
+});
+
+function buildSheetCsvUrl(baseUrl, ts) {
+  return `${baseUrl}&t=${ts}`;
+}
+
+const DATA_URLS = Object.freeze({
+  mergedProductsFeed: APP_CONFIG.feed.mergedProducts,
+  products: buildSheetCsvUrl(APP_CONFIG.sheets.products, TS),
+  pitch: buildSheetCsvUrl(APP_CONFIG.sheets.pitch, TS),
+  rank: buildSheetCsvUrl(APP_CONFIG.sheets.rank, TS),
+  promo: buildSheetCsvUrl(APP_CONFIG.sheets.promo, TS)
+});
+
+// 向下相容：保留既有常數名稱，避免後續函式牽一髮動全身。
+const MERGED_PRODUCTS_FEED = DATA_URLS.mergedProductsFeed;
+const SHEET_PRODUCTS = DATA_URLS.products;
+const SHEET_PITCH = DATA_URLS.pitch;
+const SHEET_RANK = DATA_URLS.rank;
+const SHEET_PROMO = DATA_URLS.promo;
 
 // --- FETCH HELPERS ---
 async function fetchTextWithRetry(url, timeoutMs = 15000, retries = 0) {
@@ -2255,9 +2286,91 @@ const getVal = (row, targetKey) => {
 };
 
 
-function parsePitchCsv(csvText) {
+function resetPitchState() {
   PITCH_MAP = new Map();
   PITCH_COUNTER = new Map();
+}
+
+function resetProductCatalogState() {
+  PRODUCT_MAP = new Map();
+  PITCH_COUNTER = new Map();
+  Object.values(SECTIONS).forEach(sec => { sec.items = []; });
+}
+
+function resetPrimaryCatalogState() {
+  resetPitchState();
+  resetProductCatalogState();
+}
+
+function applyPrimaryProductRecord(product) {
+  if (!product || !product.code) return;
+  PRODUCT_MAP.set(product.code, mergeProductRecords(PRODUCT_MAP.get(product.code), product));
+  const group = classifyProduct(product.name, product.category);
+  if (SECTIONS[group]) SECTIONS[group].items.push(product);
+  else SECTIONS.other.items.push(product);
+}
+
+async function fetchPrimaryCsvSources() {
+  const [productsCsv, pitchCsv] = await Promise.all([
+    fetchCsvCritical(SHEET_PRODUCTS, {
+      label: "products",
+      required: true,
+      timeoutMs: APP_CONFIG.timeouts.productsCritical
+    }),
+    fetchCsvCritical(SHEET_PITCH, {
+      label: "pitch",
+      required: true,
+      timeoutMs: APP_CONFIG.timeouts.pitchCritical
+    })
+  ]);
+  return { productsCsv, pitchCsv };
+}
+
+async function loadPrimaryCatalogData() {
+  let primarySource = 'csv';
+  let mergedAttempted = false;
+  let mergedLoaded = false;
+
+  if (hasConfiguredMergedFeed() && !shouldSkipMergedFeedOnce()) {
+    mergedAttempted = true;
+    try {
+      const mergedData = await fetchMergedJsonFast(MERGED_PRODUCTS_FEED, {
+        label: "merged-products",
+        required: true,
+        timeoutMs: APP_CONFIG.timeouts.mergedPrimary
+      });
+      setProgressStage('parse');
+      parseMergedProductsFeed(mergedData);
+      mergedLoaded = PRODUCT_MAP.size > 0;
+      if (!mergedLoaded) throw new Error('merged feed parsed but no products');
+      primarySource = 'merged-json';
+      console.info('[INIT] merged primary feed loaded');
+    } catch (mergedErr) {
+      console.warn('[INIT] merged primary failed, fallback to CSV', mergedErr);
+      setProgressStage('fallback', '主資料備援中…');
+    }
+  }
+
+  if (!mergedLoaded) {
+    const { productsCsv, pitchCsv } = await fetchPrimaryCsvSources();
+    await ensurePapaParse();
+    setProgressStage('parse');
+    parsePitchCsv(pitchCsv);
+    parseProductsCsv(productsCsv);
+    primarySource = mergedAttempted ? 'csv-fallback' : 'csv';
+    console.info('[INIT] CSV primary feed loaded', primarySource);
+  }
+
+  return {
+    primarySource,
+    mergedAttempted,
+    mergedLoaded,
+    productCount: PRODUCT_MAP.size
+  };
+}
+
+function parsePitchCsv(csvText) {
+  resetPitchState();
   Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach(row => {
     const code = getVal(row, 'product_code').trim().toUpperCase();
     const pitchName = getVal(row, 'product_name').trim();
@@ -2279,9 +2392,7 @@ function parsePitchCsv(csvText) {
 }
 
 function parseProductsCsv(csvText) {
-  PRODUCT_MAP = new Map();
-  Object.values(SECTIONS).forEach(sec => { sec.items = []; });
-  PITCH_COUNTER = new Map();
+  resetProductCatalogState();
 
   Papa.parse(csvText, { header: true, skipEmptyLines: true }).data.forEach((row, idx) => {
     const code = getVal(row, 'product_code').trim().toUpperCase();
@@ -2330,10 +2441,7 @@ function parseProductsCsv(csvText) {
       isHiddenPp: isHiddenPp
     };
 
-    PRODUCT_MAP.set(code, mergeProductRecords(PRODUCT_MAP.get(code), p));
-    const group = classifyProduct(p.name, p.category);
-    if (SECTIONS[group]) SECTIONS[group].items.push(p);
-    else SECTIONS.other.items.push(p);
+    applyPrimaryProductRecord(p);
   });
 }
 
@@ -2399,19 +2507,13 @@ function normalizeMergedProductItem(raw, idx) {
 }
 
 function parseMergedProductsFeed(feedData) {
-  PRODUCT_MAP = new Map();
-  PITCH_MAP = new Map();
-  PITCH_COUNTER = new Map();
-  Object.values(SECTIONS).forEach(sec => { sec.items = []; });
+  resetPrimaryCatalogState();
 
   const items = Array.isArray(feedData?.items) ? feedData.items : (Array.isArray(feedData) ? feedData : []);
   items.forEach((raw, idx) => {
     const p = normalizeMergedProductItem(raw, idx);
     if (!p) return;
-    PRODUCT_MAP.set(p.code, mergeProductRecords(PRODUCT_MAP.get(p.code), p));
-    const group = classifyProduct(p.name, p.category);
-    if (SECTIONS[group]) SECTIONS[group].items.push(p);
-    else SECTIONS.other.items.push(p);
+    applyPrimaryProductRecord(p);
   });
 }
 
@@ -2470,42 +2572,8 @@ async function init() {
     startProgressOverlay();
     setProgressStage('connect');
 
-    let primarySource = 'csv';
-    let mergedAttempted = false;
-    let mergedLoaded = false;
-
-    if (hasConfiguredMergedFeed() && !shouldSkipMergedFeedOnce()) {
-      mergedAttempted = true;
-      try {
-        const mergedData = await fetchMergedJsonFast(MERGED_PRODUCTS_FEED, {
-          label: "merged-products",
-          required: true,
-          timeoutMs: 5000
-        });
-        setProgressStage('parse');
-        parseMergedProductsFeed(mergedData);
-        mergedLoaded = PRODUCT_MAP.size > 0;
-        if (!mergedLoaded) throw new Error('merged feed parsed but no products');
-        primarySource = 'merged-json';
-        console.info('[INIT] merged primary feed loaded');
-      } catch (mergedErr) {
-        console.warn('[INIT] merged primary failed, fallback to CSV', mergedErr);
-        setProgressStage('fallback', '主資料備援中…');
-      }
-    }
-
-    if (!mergedLoaded) {
-      const [resProd, resPitch] = await Promise.all([
-        fetchCsvCritical(SHEET_PRODUCTS, { label: "products", required: true, timeoutMs: 7000 }),
-        fetchCsvCritical(SHEET_PITCH, { label: "pitch", required: true, timeoutMs: 7000 })
-      ]);
-      await ensurePapaParse();
-      setProgressStage('parse');
-      parsePitchCsv(resPitch);
-      parseProductsCsv(resProd);
-      primarySource = mergedAttempted ? 'csv-fallback' : 'csv';
-      console.info('[INIT] CSV primary feed loaded', primarySource);
-    }
+    const bootMeta = await loadPrimaryCatalogData();
+    console.info('[BOOT] primary catalog ready', bootMeta);
 
     renderPromotions();
     setProgressStage('render');
@@ -2542,7 +2610,7 @@ async function loadDeferredAuxData() {
   PROMO_LOAD_FAILED = false;
   renderPromotions();
   try {
-    const promoCsv = await fetchCsvDeferred(SHEET_PROMO, { label: 'promo', required: false, timeoutMs: 6500 });
+    const promoCsv = await fetchCsvDeferred(SHEET_PROMO, { label: 'promo', required: false, timeoutMs: APP_CONFIG.timeouts.promoDeferred });
     if (promoCsv) {
       await ensurePapaParse();
       parsePromoCsv(promoCsv);
@@ -2562,7 +2630,7 @@ async function loadDeferredAuxData() {
 
   RANK_LOADING = true;
   try {
-    const rankCsv = await fetchCsvDeferred(SHEET_RANK, { label: 'rank', required: false, timeoutMs: 6500 });
+    const rankCsv = await fetchCsvDeferred(SHEET_RANK, { label: 'rank', required: false, timeoutMs: APP_CONFIG.timeouts.rankDeferred });
     if (rankCsv) {
       await ensurePapaParse();
       processRankings(rankCsv);
