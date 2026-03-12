@@ -1184,7 +1184,7 @@ let loaderStageRunner = null;
 const LOADER_STAGE_CONFIG = {
   boot:     { pct: 12, step: 0, text: '啟動系統…' },
   connect:  { pct: 45, step: 1, text: '正在同步商品主資料…' },
-  fallback: { pct: 52, step: 1, text: '主資料連線異常，切換備援來源…' },
+  fallback: { pct: 52, step: 1, text: '正在同步商品補充資料…' },
   parse:    { pct: 70, step: 2, text: '正在解析商品內容…' },
   render:   { pct: 88, step: 3, text: '正在建立商品卡片…' },
   final:    { pct: 92, step: 4, text: '即將完成…' },
@@ -1526,7 +1526,7 @@ function handleCatalogImageError(imgEl) {
 
 const TS = Date.now();
 // 升級用：部署 merged-products-feed 的 GAS 後，把網址貼到這裡；未設定時會自動 fallback 到既有 CSV。
-const MERGED_PRODUCTS_FEED = "https://script.google.com/macros/s/AKfycbzjsviOSuzZY32R5xaI_LzBe11iBSNOPOtloLukUti8idghoWJqiI9AuyaM5NzoBixq/exec"; // 例如：https://script.google.com/macros/s/AKfycb.../exec
+const MERGED_PRODUCTS_FEED = ""; // 前端止血版 v2：暫停直接抓 GAS merged feed，避免 CORS 導致必然 fallback
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
 const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
@@ -2469,52 +2469,15 @@ async function init() {
     startProgressOverlay();
     setProgressStage('connect');
 
-    let usedMergedFeed = false;
-    const skipMergedFeed = shouldSkipMergedFeedOnce();
-    if (hasConfiguredMergedFeed() && !skipMergedFeed) {
-      try {
-        console.log('[FEED] merged init start', MERGED_PRODUCTS_FEED);
-        const mergedT0 = performance.now();
-
-        const mergedFeed = await fetchMergedJsonFast(MERGED_PRODUCTS_FEED, { label: 'merged-products', required: true, timeoutMs: 4200 });
-        console.log('[FEED] merged raw ok', mergedFeed);
-
-        setProgressStage('parse');
-        parseMergedProductsFeed(mergedFeed);
-
-        const mergedItems = Array.isArray(mergedFeed?.items) ? mergedFeed.items : (Array.isArray(mergedFeed) ? mergedFeed : []);
-        const mergedT1 = performance.now();
-        console.log('[FEED] merged parse ok', {
-          items: mergedItems.length,
-          ms: Math.round(mergedT1 - mergedT0),
-          cache: mergedFeed?.cache || null,
-          reqId: mergedFeed?.reqId || null,
-          diag: mergedFeed?.diag || null
-        });
-
-        usedMergedFeed = true;
-        console.info('[INIT] merged JSON feed loaded');
-      } catch (feedErr) {
-        setProgressStage('fallback');
-        console.error('[FEED] merged failed detail', feedErr);
-        console.warn('[INIT] merged JSON feed failed, fallback to CSV:', feedErr);
-      }
-    } else if (skipMergedFeed) {
-      setProgressStage('fallback');
-      console.warn('[INIT] skip merged feed once: forced CSV fallback');
-    }
-
-    if (!usedMergedFeed) {
-      const [resProd, resPitch] = await Promise.all([
-        fetchCsvCritical(SHEET_PRODUCTS, { label: "products", required: true, timeoutMs: 7000 }),
-        fetchCsvCritical(SHEET_PITCH, { label: "pitch", required: true, timeoutMs: 7000 })
-      ]);
-      await ensurePapaParse();
-      setProgressStage('parse');
-      parsePitchCsv(resPitch);
-      parseProductsCsv(resProd);
-      console.info('[INIT] CSV fallback loaded');
-    }
+    const [resProd, resPitch] = await Promise.all([
+      fetchCsvCritical(SHEET_PRODUCTS, { label: "products", required: true, timeoutMs: 7000 }),
+      fetchCsvCritical(SHEET_PITCH, { label: "pitch", required: true, timeoutMs: 7000 })
+    ]);
+    await ensurePapaParse();
+    setProgressStage('parse');
+    parsePitchCsv(resPitch);
+    parseProductsCsv(resProd);
+    console.info('[INIT] CSV primary feed loaded (front-end hotfix v2)');
 
     renderPromotions();
     setProgressStage('render');
