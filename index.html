@@ -2972,40 +2972,51 @@ function applyTagFilter(e, tag) {
   if (main) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function buildProductCard(p, filterText, activeTagNorm) {
-  const displayName = highlightText(p.name, filterText);
-  let detailContent = "", shareBtnHtml = "";
-  const _vUrl = (p.videoUrl || '').trim();
-  const _moreRaw = (p.moreLinksRaw || '').trim();
-  const _hasVideo = _vUrl.length > 5;
-  const _hasMore = _moreRaw.length > 3;
-  const _sid = safeDomId(p.code);
-  const _isSeen = _hasVideo ? isVideoSeen(p.code, _vUrl) : true;
-  const videoHintHtml = _hasVideo ? `<div class="video-hint ${_isSeen ? 'seen' : 'new'}" id="vh-${_sid}"><span class="material-icons-round">play_arrow</span></div>` : ``;
-  const playBtnHtml = _hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : ``;
-  const moreBtnHtml = _hasMore ? `<div class="btn-media btn-more" id="btn-more-${_sid}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ``;
+function buildProductMediaControls(p) {
+  const videoUrl = String(p.videoUrl || '').trim();
+  const moreLinksRaw = String(p.moreLinksRaw || '').trim();
+  const hasVideo = videoUrl.length > 5;
+  const hasMore = moreLinksRaw.length > 3;
+  const safeId = safeDomId(p.code);
+  const isSeen = hasVideo ? isVideoSeen(p.code, videoUrl) : true;
 
-  let stickerHtml = "";
-  if (PRODUCT_TO_PROMO_MAP.has(p.code)) {
-    const promos = PRODUCT_TO_PROMO_MAP.get(p.code);
-    promos.forEach(pr => {
-      if (isPromoActive(pr)) {
-        stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
-      }
-    });
+  return {
+    videoHintHtml: hasVideo ? `<div class="video-hint ${isSeen ? 'seen' : 'new'}" id="vh-${safeId}"><span class="material-icons-round">play_arrow</span></div>` : '',
+    playBtnHtml: hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : '',
+    moreBtnHtml: hasMore ? `<div class="btn-media btn-more" id="btn-more-${safeId}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ''
+  };
+}
+
+function buildProductPromoStickerHtml(p) {
+  if (!PRODUCT_TO_PROMO_MAP.has(p.code)) return '';
+
+  let stickerHtml = '';
+  PRODUCT_TO_PROMO_MAP.get(p.code).forEach(pr => {
+    if (isPromoActive(pr)) {
+      stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+    }
+  });
+  return stickerHtml;
+}
+
+function buildProductPitchDetail(p, filterText, activeTagNorm) {
+  if (!p.pitch) {
+    return {
+      detailContent: `<div class="no-data">尚無詳細資料</div>`,
+      shareBtnHtml: ''
+    };
   }
 
-  if (p.pitch) {
-    let tagsHtml = "";
-    if (p.pitch.tags) {
-      tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
-        const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
-        return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
-      }).join('') + `</div>`;
-    }
-    detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlightText(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
+  let tagsHtml = '';
+  if (p.pitch.tags) {
+    tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
+      const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
+      return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
+    }).join('') + `</div>`;
+  }
 
-    const shareText = `【 ✨ 產品推薦 】
+  const detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlightText(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
+  const shareText = `【 ✨ 產品推薦 】
 🌿 ${p.name}
 -------------------
 💬 主打：${p.pitch.title || ''}
@@ -3014,28 +3025,40 @@ function buildProductCard(p, filterText, activeTagNorm) {
 ${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}
 -------------------
 (台酒生技)`;
-    shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
-  } else {
-    detailContent = `<div class="no-data">尚無詳細資料</div>`;
+  const shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
+
+  return { detailContent, shareBtnHtml };
+}
+
+function buildProductImageHtml(p, videoHintHtml) {
+  if (!(p.photo && p.photo.length > 5)) {
+    return `<div style="font-size:10px;color:#ccc">無圖</div>`;
   }
 
-  let imgHtml = `<div style="font-size:10px;color:#ccc">無圖</div>`;
-  if (p.photo && p.photo.length > 5) {
-    const safePhotoAttr = escapeHtmlAttr(p.photo);
-    const photoJs = JSON.stringify(p.photo);
-    imgHtml = `
+  const safePhotoAttr = escapeHtmlAttr(p.photo);
+  const photoJs = JSON.stringify(p.photo);
+  return `
       <div class="p-img-box" onclick='onProductImageClick(event, ${photoJs})'>
       <img src="${safePhotoAttr}" data-src="${safePhotoAttr}" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">
       ${videoHintHtml}
       <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
       </div>
     `;
-  }
+}
 
-  let newBadgeHtml = "";
-  if (p.pitch && p.pitch.isNew) {
-    newBadgeHtml = `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`;
-  }
+function buildProductNewBadgeHtml(p) {
+  return (p.pitch && p.pitch.isNew)
+    ? `<div class="new-badge"><span class="material-icons-round" style="font-size:12px">auto_awesome</span>NEW</div>`
+    : '';
+}
+
+function buildProductCard(p, filterText, activeTagNorm) {
+  const displayName = highlightText(p.name, filterText);
+  const { videoHintHtml, playBtnHtml, moreBtnHtml } = buildProductMediaControls(p);
+  const stickerHtml = buildProductPromoStickerHtml(p);
+  const { detailContent, shareBtnHtml } = buildProductPitchDetail(p, filterText, activeTagNorm);
+  const imgHtml = buildProductImageHtml(p, videoHintHtml);
+  const newBadgeHtml = buildProductNewBadgeHtml(p);
 
   const card = document.createElement("div");
   card.className = "p-card";
@@ -3075,70 +3098,82 @@ function highlightText(text, term) {
   return String(text).replace(re, '<mark class="highlight">$1</mark>');
 }
 
-function renderUI(filterText = "", options = {}) {
-  const { chunked = false, firstBatch = 12, chunkSize = 12 } = options || {};
-  const renderToken = ++renderJobToken;
-  const container = document.getElementById("main-container");
-  const nav = document.getElementById("topNav");
-  const activeTagNorm = normalizeTag(activeTagFilter);
-  const sectionJobs = [];
+function getRenderSearchTokens(filterText) {
+  return String(filterText || '').toLowerCase().split(/[ ,，+　]+/).filter(Boolean);
+}
 
+function productMatchesRenderFilter(product, searchTokens, activeTagNorm) {
+  if (activeTagNorm) return productHasTag(product, activeTagNorm);
+  if (!searchTokens.length) return true;
+
+  const pitchTitle = String(product?.pitch?.title || '').toLowerCase();
+  const pitchTags = String(product?.pitch?.tags || '').toLowerCase();
+  const haystack = [product.name || '', product.code || '', pitchTitle, pitchTags].join(' ').toLowerCase();
+  return searchTokens.every(term => haystack.includes(term));
+}
+
+function getFilteredSectionItems(sectionKey, filterText, activeTagNorm) {
+  const sectionData = SECTIONS[sectionKey];
+  if (!sectionData || !Array.isArray(sectionData.items) || sectionData.items.length === 0) return [];
+  const searchTokens = getRenderSearchTokens(filterText);
+  return sectionData.items.filter(product => productMatchesRenderFilter(product, searchTokens, activeTagNorm));
+}
+
+function createTopNavPill(sectionData) {
+  const pill = document.createElement('div');
+  pill.className = 'nav-pill';
+  pill.innerHTML = `<span class="material-icons-round" style="font-size:14px">${sectionData.icon}</span> ${sectionData.title}`;
+  pill.onclick = () => scrollToId(sectionData.id);
+  return pill;
+}
+
+function createCatalogSection(sectionData, itemCount) {
+  const section = document.createElement('section');
+  section.className = 'cat-section';
+  section.id = sectionData.id;
+  section.innerHTML = `<div class="cat-title">${sectionData.title} <span style="font-size:12px;color:#90a4ae;font-weight:normal">(${itemCount})</span></div>`;
+
+  const grid = document.createElement('div');
+  grid.className = 'grid-layout';
+  section.appendChild(grid);
+
+  return { section, grid };
+}
+
+function clearCatalogRenderSurface(container, nav, filterText, rawSearchValue) {
   container.querySelectorAll('.cat-section').forEach(e => e.remove());
-  if (!filterText) nav.innerHTML = "";
-
-  const searchInputEl = document.getElementById('searchInput');
-  const rawSearchValue = searchInputEl ? String(searchInputEl.value || '') : '';
+  if (!filterText) nav.innerHTML = '';
   document.getElementById('search-clear').style.display = (rawSearchValue || filterText) ? 'block' : 'none';
+}
 
+function buildSectionRenderJobs(container, nav, filterText, activeTagNorm) {
+  const sectionJobs = [];
   const order = ['health', 'drinks', 'beauty', 'cleaning', 'other'];
 
-  order.forEach(key => {
-    const secData = SECTIONS[key];
-    if (secData.items.length === 0) return;
-
-    const filteredItems = secData.items.filter(p => {
-      if (activeTagNorm) return productHasTag(p, activeTagNorm);
-      const tokens = String(filterText || '').toLowerCase().split(/[ ,，+　]+/).filter(Boolean);
-      if (!tokens.length) return true;
-      const pitchTitle = String(p?.pitch?.title || '').toLowerCase();
-      const pitchTags = String(p?.pitch?.tags || '').toLowerCase();
-      const haystack = [p.name || '', p.code || '', pitchTitle, pitchTags].join(' ').toLowerCase();
-      return tokens.every(term => haystack.includes(term));
-    });
-
-    if (filteredItems.length === 0) return;
+  order.forEach(sectionKey => {
+    const sectionData = SECTIONS[sectionKey];
+    const filteredItems = getFilteredSectionItems(sectionKey, filterText, activeTagNorm);
+    if (!sectionData || filteredItems.length === 0) return;
 
     if (!filterText) {
-      const pill = document.createElement("div");
-      pill.className = "nav-pill";
-      pill.innerHTML = `<span class="material-icons-round" style="font-size:14px">${secData.icon}</span> ${secData.title}`;
-      pill.onclick = () => scrollToId(secData.id);
-      nav.appendChild(pill);
+      nav.appendChild(createTopNavPill(sectionData));
     }
 
-    const section = document.createElement("section");
-    section.className = "cat-section";
-    section.id = secData.id;
-    section.innerHTML = `<div class="cat-title">${secData.title} <span style="font-size:12px;color:#90a4ae;font-weight:normal">(${filteredItems.length})</span></div>`;
-
-    const grid = document.createElement("div");
-    grid.className = "grid-layout";
-    section.appendChild(grid);
+    const { section, grid } = createCatalogSection(sectionData, filteredItems.length);
     container.appendChild(section);
     sectionJobs.push({ grid, items: filteredItems });
   });
 
-  if (!filterText && nav.children.length > 0) nav.children[0].classList.add('active');
-  setupScrollSpy();
+  return sectionJobs;
+}
 
-  if (!chunked) {
-    sectionJobs.forEach(job => {
-      appendProductCardsBatch(job.grid, job.items, 0, job.items.length, filterText, activeTagNorm);
-    });
-    if (renderToken === renderJobToken) setupScrollSpy();
-    return;
-  }
+function renderSectionJobsImmediate(sectionJobs, filterText, activeTagNorm) {
+  sectionJobs.forEach(job => {
+    appendProductCardsBatch(job.grid, job.items, 0, job.items.length, filterText, activeTagNorm);
+  });
+}
 
+function enqueueChunkedSectionJobs(sectionJobs, filterText, activeTagNorm, firstBatch) {
   const queue = [];
   sectionJobs.forEach(job => {
     const nextIndex = appendProductCardsBatch(job.grid, job.items, 0, Math.min(firstBatch, job.items.length), filterText, activeTagNorm);
@@ -3146,12 +3181,10 @@ function renderUI(filterText = "", options = {}) {
       queue.push({ grid: job.grid, items: job.items, index: nextIndex });
     }
   });
+  return queue;
+}
 
-  if (!queue.length) {
-    if (renderToken === renderJobToken) setupScrollSpy();
-    return;
-  }
-
+function pumpChunkedSectionJobs(queue, renderToken, chunkSize, filterText, activeTagNorm) {
   const pump = () => {
     if (renderToken !== renderJobToken) return;
 
@@ -3174,6 +3207,37 @@ function renderUI(filterText = "", options = {}) {
   };
 
   requestAnimationFrame(pump);
+}
+
+function renderUI(filterText = "", options = {}) {
+  const { chunked = false, firstBatch = 12, chunkSize = 12 } = options || {};
+  const renderToken = ++renderJobToken;
+  const container = document.getElementById("main-container");
+  const nav = document.getElementById("topNav");
+  const activeTagNorm = normalizeTag(activeTagFilter);
+  const searchInputEl = document.getElementById('searchInput');
+  const rawSearchValue = searchInputEl ? String(searchInputEl.value || '') : '';
+
+  clearCatalogRenderSurface(container, nav, filterText, rawSearchValue);
+
+  const sectionJobs = buildSectionRenderJobs(container, nav, filterText, activeTagNorm);
+
+  if (!filterText && nav.children.length > 0) nav.children[0].classList.add('active');
+  setupScrollSpy();
+
+  if (!chunked) {
+    renderSectionJobsImmediate(sectionJobs, filterText, activeTagNorm);
+    if (renderToken === renderJobToken) setupScrollSpy();
+    return;
+  }
+
+  const queue = enqueueChunkedSectionJobs(sectionJobs, filterText, activeTagNorm, firstBatch);
+  if (!queue.length) {
+    if (renderToken === renderJobToken) setupScrollSpy();
+    return;
+  }
+
+  pumpChunkedSectionJobs(queue, renderToken, chunkSize, filterText, activeTagNorm);
 }
 
 let searchTimeout;
