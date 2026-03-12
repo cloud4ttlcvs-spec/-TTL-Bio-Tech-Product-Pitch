@@ -1526,7 +1526,7 @@ function handleCatalogImageError(imgEl) {
 
 const TS = Date.now();
 // 升級用：部署 merged-products-feed 的 GAS 後，把網址貼到這裡；未設定時會自動 fallback 到既有 CSV。
-const MERGED_PRODUCTS_FEED = ""; // 前端止血版 v2：暫停直接抓 GAS merged feed，避免 CORS 導致必然 fallback
+const MERGED_PRODUCTS_FEED = "merged-feed.json"; // Phase A：改由同網域靜態 merged feed 為主，CSV 為備援
 const SHEET_PRODUCTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBtV8q3Ank7Bnhs83IbOb97U46juV-RKeL3NpdFiNcSu-ifI21fQYo1-io62S3JIrXEO5MiDArc1Lr/pub?gid=1623055155&single=true&output=csv&t=" + TS;
 const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBPfRcFADAoW4-_zbWB78gZb1yR_2gM9oORqRwCx8vb844cP-KcE58FgTVynptYk6L6o9pm/pub?gid=0&single=true&output=csv&t=" + TS;
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
@@ -1563,7 +1563,7 @@ function addBust(url) {
 }
 
 function hasConfiguredMergedFeed() {
-  return /^https?:\/\//i.test(MERGED_PRODUCTS_FEED || '');
+  return String(MERGED_PRODUCTS_FEED || '').trim().length > 0;
 }
 
 const MERGED_SKIP_KEY = 'ttl_skip_merged_once';
@@ -2464,20 +2464,48 @@ function parsePromoCsv(csvText) {
   });
 }
 
+
 async function init() {
   try {
     startProgressOverlay();
     setProgressStage('connect');
 
-    const [resProd, resPitch] = await Promise.all([
-      fetchCsvCritical(SHEET_PRODUCTS, { label: "products", required: true, timeoutMs: 7000 }),
-      fetchCsvCritical(SHEET_PITCH, { label: "pitch", required: true, timeoutMs: 7000 })
-    ]);
-    await ensurePapaParse();
-    setProgressStage('parse');
-    parsePitchCsv(resPitch);
-    parseProductsCsv(resProd);
-    console.info('[INIT] CSV primary feed loaded (front-end hotfix v2)');
+    let primarySource = 'csv';
+    let mergedAttempted = false;
+    let mergedLoaded = false;
+
+    if (hasConfiguredMergedFeed() && !shouldSkipMergedFeedOnce()) {
+      mergedAttempted = true;
+      try {
+        const mergedData = await fetchMergedJsonFast(MERGED_PRODUCTS_FEED, {
+          label: "merged-products",
+          required: true,
+          timeoutMs: 5000
+        });
+        setProgressStage('parse');
+        parseMergedProductsFeed(mergedData);
+        mergedLoaded = PRODUCT_MAP.size > 0;
+        if (!mergedLoaded) throw new Error('merged feed parsed but no products');
+        primarySource = 'merged-json';
+        console.info('[INIT] merged primary feed loaded');
+      } catch (mergedErr) {
+        console.warn('[INIT] merged primary failed, fallback to CSV', mergedErr);
+        setProgressStage('fallback', '主資料備援中…');
+      }
+    }
+
+    if (!mergedLoaded) {
+      const [resProd, resPitch] = await Promise.all([
+        fetchCsvCritical(SHEET_PRODUCTS, { label: "products", required: true, timeoutMs: 7000 }),
+        fetchCsvCritical(SHEET_PITCH, { label: "pitch", required: true, timeoutMs: 7000 })
+      ]);
+      await ensurePapaParse();
+      setProgressStage('parse');
+      parsePitchCsv(resPitch);
+      parseProductsCsv(resProd);
+      primarySource = mergedAttempted ? 'csv-fallback' : 'csv';
+      console.info('[INIT] CSV primary feed loaded', primarySource);
+    }
 
     renderPromotions();
     setProgressStage('render');
