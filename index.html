@@ -27,7 +27,7 @@
   --highlight-color: #ffeb3b;
   --highlight-text: #d81b60;
   --sticky-offset: 185px; 
-  --promo-color: #EB658B;
+  --promo-color: #ff9800;
   --new-tag-color: #ff5252;
   
   --sz-p-img: 65px;
@@ -1599,13 +1599,50 @@ async function fetchTextByProviders(sourceUrl, providers, { label = 'text', requ
 }
 
 async function fetchMergedJsonFast(sourceUrl, { label = 'json', required = true, timeoutMs = 4200 } = {}) {
-  const raw = await fetchTextByProviders(sourceUrl, [FETCH_PROVIDER_DIRECT], { label, required, timeoutMs, retries: 0 });
-  if (!raw) return null;
+  const t0 = performance.now();
+  console.log(`[FEED] ${label} fetch start`, sourceUrl);
+
+  let raw = null;
   try {
-    return JSON.parse(raw);
+    raw = await fetchTextByProviders(sourceUrl, [FETCH_PROVIDER_DIRECT], { label, required, timeoutMs, retries: 0 });
+  } catch (err) {
+    console.error(`[FEED] ${label} fetch failed`, err);
+    throw err;
+  }
+
+  if (!raw) {
+    console.warn(`[FEED] ${label} empty raw response`);
+    return null;
+  }
+
+  console.log(`[FEED] ${label} text length`, raw.length);
+  console.log(`[FEED] ${label} text head`, raw.slice(0, 220));
+
+  let data;
+  try {
+    data = JSON.parse(raw);
   } catch (e) {
+    console.error(`[FEED] ${label} json parse failed`, e);
+    console.error(`[FEED] ${label} raw head for parse error`, raw.slice(0, 500));
     throw new Error(`[JSON] ${label} parse failed: ${e.message}`);
   }
+
+  const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : null);
+  if (!items) {
+    console.error(`[FEED] ${label} schema mismatch`, data);
+    throw new Error(`[JSON] ${label} schema mismatch: items not found`);
+  }
+
+  const t1 = performance.now();
+  console.log(`[FEED] ${label} ok`, {
+    items: items.length,
+    ms: Math.round(t1 - t0),
+    cache: data?.cache || null,
+    reqId: data?.reqId || null,
+    diag: data?.diag || null
+  });
+
+  return data;
 }
 
 async function fetchCsvCritical(sourceUrl, { label = 'csv', required = true, timeoutMs = 7000 } = {}) {
@@ -2436,13 +2473,30 @@ async function init() {
     const skipMergedFeed = shouldSkipMergedFeedOnce();
     if (hasConfiguredMergedFeed() && !skipMergedFeed) {
       try {
+        console.log('[FEED] merged init start', MERGED_PRODUCTS_FEED);
+        const mergedT0 = performance.now();
+
         const mergedFeed = await fetchMergedJsonFast(MERGED_PRODUCTS_FEED, { label: 'merged-products', required: true, timeoutMs: 4200 });
+        console.log('[FEED] merged raw ok', mergedFeed);
+
         setProgressStage('parse');
         parseMergedProductsFeed(mergedFeed);
+
+        const mergedItems = Array.isArray(mergedFeed?.items) ? mergedFeed.items : (Array.isArray(mergedFeed) ? mergedFeed : []);
+        const mergedT1 = performance.now();
+        console.log('[FEED] merged parse ok', {
+          items: mergedItems.length,
+          ms: Math.round(mergedT1 - mergedT0),
+          cache: mergedFeed?.cache || null,
+          reqId: mergedFeed?.reqId || null,
+          diag: mergedFeed?.diag || null
+        });
+
         usedMergedFeed = true;
         console.info('[INIT] merged JSON feed loaded');
       } catch (feedErr) {
         setProgressStage('fallback');
+        console.error('[FEED] merged failed detail', feedErr);
         console.warn('[INIT] merged JSON feed failed, fallback to CSV:', feedErr);
       }
     } else if (skipMergedFeed) {
