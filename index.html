@@ -3308,7 +3308,7 @@ function buildProductPitchDetail(p, filterText, activeTagNorm) {
   if (p.pitch.tags) {
     tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
       const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
-      return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
+      return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-action="apply-tag-filter" data-tag="${escapeAttr(tag)}" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
     }).join('') + `</div>`;
   }
 
@@ -3325,7 +3325,7 @@ function buildProductImageHtml(p, videoHintHtml) {
 
   const safePhotoAttr = escapeHtmlAttr(p.photo);
   return `
-      <div class="p-img-box" onclick='onProductImageClick(event, ${JSON.stringify(p.photo)})'>
+      <div class="p-img-box" data-action="product-image-click" data-src="${safePhotoAttr}">
       <img src="${safePhotoAttr}" data-src="${safePhotoAttr}" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">
       ${videoHintHtml}
       <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
