@@ -27,7 +27,7 @@
   --highlight-color: #ffeb3b;
   --highlight-text: #d81b60;
   --sticky-offset: 185px; 
-  --promo-color: #EB5986;
+  --promo-color: #ff9800;
   --new-tag-color: #ff5252;
   
   --sz-p-img: 65px;
@@ -1371,7 +1371,7 @@ function scheduleDelayedReloadHint() {
   loaderHintTimer = setTimeout(() => {
     if (!isLoaderActive()) return;
     if (btn) btn.style.display = 'inline-flex';
-    showSlowLoadHint('首次啟動較久，若長時間未完成可嘗試重新整理。');
+    showSlowLoadHint('首次啟動較久，點此重整會直接改走備援資料。');
   }, LOADER_HINT_DELAY_MS);
 }
 
@@ -1448,6 +1448,7 @@ function closeIosPrompt() {
 
 async function forceClearCache() {
   try {
+    sessionStorage.setItem('ttl_skip_merged_once', '1');
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(registrations.map(registration => registration.unregister()));
@@ -1531,23 +1532,23 @@ const SHEET_PITCH = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJaiIUkmBP
 const SHEET_RANK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj5QLrtaWikGcLNwMawbjiN8ZQDgFzW1RV7UECFgLzECWj16I2ugE_B6tzzLICCynsk1L6lAuJfccS/pub?gid=93142219&single=true&output=csv&t=" + TS;
 const SHEET_PROMO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT3hvcNJNEfLugUcwQdHTTu0NZcy2QHyMPvMaPpfU6g_p0MTrw3muXIGn3SPkISSPnbW9ou1GlHzRc6/pub?gid=74407584&single=true&output=csv&t=" + TS;
 
-// --- CSV FETCH HELPER (Auto-Retry) ---
-async function fetchTextWithRetry(url, timeoutMs = 15000, retries = 2) {
+// --- FETCH HELPERS ---
+async function fetchTextWithRetry(url, timeoutMs = 15000, retries = 0) {
   for (let i = 0; i <= retries; i++) {
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-      const res = await fetch(url, { 
-        signal: ctrl.signal, 
-        cache: "no-store", 
-        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } 
+      const res = await fetch(url, {
+        signal: ctrl.signal,
+        cache: "no-store",
+        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
       });
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.text();
     } catch (err) {
       if (i === retries) throw err;
-      await new Promise(r => setTimeout(r, 1000)); // Wait 1s
+      await new Promise(r => setTimeout(r, 500));
     }
   }
 }
@@ -1557,47 +1558,62 @@ function appendQueryParam(url, key, value) {
   return `${url}${joiner}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
 }
 
+function addBust(url) {
+  return appendQueryParam(url, '_bust', Date.now());
+}
+
 function hasConfiguredMergedFeed() {
   return /^https?:\/\//i.test(MERGED_PRODUCTS_FEED || '');
 }
 
-// --- FETCH SMART (Double Cache-Busting + Proxy) ---
-const PROXY_PROVIDERS = [
-  { name: "direct", build: (u) => appendQueryParam(u, "_bust", Date.now()) }, 
-  { name: "corsproxy", build: (u) => "https://corsproxy.io/?" + encodeURIComponent(appendQueryParam(u, "_bust", Date.now())) },
-  { name: "allorigins", build: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(appendQueryParam(u, "_bust", Date.now())) }
-];
+const MERGED_SKIP_KEY = 'ttl_skip_merged_once';
+function shouldSkipMergedFeedOnce() {
+  try {
+    const flag = sessionStorage.getItem(MERGED_SKIP_KEY) === '1';
+    if (flag) sessionStorage.removeItem(MERGED_SKIP_KEY);
+    return flag;
+  } catch (err) {
+    return false;
+  }
+}
 
-async function fetchTextSmart(sourceUrl, { label = "text", required = true, timeoutMs = 15000 } = {}) {
+const FETCH_PROVIDER_DIRECT = { name: 'direct', build: (u) => addBust(u) };
+const FETCH_PROVIDER_ALLORIGINS = { name: 'allorigins', build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(addBust(u)) };
+
+async function fetchTextByProviders(sourceUrl, providers, { label = 'text', required = true, timeoutMs = 15000, retries = 0 } = {}) {
   let lastErr = null;
-  for (const p of PROXY_PROVIDERS) {
+  for (const p of providers) {
     const u = p.build(sourceUrl);
     try {
-      const t = await fetchTextWithRetry(u, timeoutMs);
-      if (!t || t.trim().length < 2) throw new Error("empty response");
-      if (looksLikeHtml(t)) throw new Error("html response");
+      const t = await fetchTextWithRetry(u, timeoutMs, retries);
+      if (!t || t.trim().length < 2) throw new Error('empty response');
+      if (looksLikeHtml(t)) throw new Error('html response');
       return t;
     } catch (e) {
       lastErr = e;
       console.warn(`[FETCH] ${label} failed via ${p.name}:`, e);
     }
   }
-  if (required) throw (lastErr || new Error("fetch failed"));
+  if (required) throw (lastErr || new Error('fetch failed'));
   return null;
 }
 
-async function fetchCsvTextSmart(sourceUrl, { label = "csv", required = true, timeoutMs = 15000 } = {}) {
-  return await fetchTextSmart(sourceUrl, { label, required, timeoutMs });
-}
-
-async function fetchJsonSmart(sourceUrl, { label = "json", required = true, timeoutMs = 15000 } = {}) {
-  const raw = await fetchTextSmart(sourceUrl, { label, required, timeoutMs });
+async function fetchMergedJsonFast(sourceUrl, { label = 'json', required = true, timeoutMs = 4200 } = {}) {
+  const raw = await fetchTextByProviders(sourceUrl, [FETCH_PROVIDER_DIRECT], { label, required, timeoutMs, retries: 0 });
   if (!raw) return null;
   try {
     return JSON.parse(raw);
   } catch (e) {
     throw new Error(`[JSON] ${label} parse failed: ${e.message}`);
   }
+}
+
+async function fetchCsvCritical(sourceUrl, { label = 'csv', required = true, timeoutMs = 7000 } = {}) {
+  return await fetchTextByProviders(sourceUrl, [FETCH_PROVIDER_DIRECT], { label, required, timeoutMs, retries: 1 });
+}
+
+async function fetchCsvDeferred(sourceUrl, { label = 'csv', required = true, timeoutMs = 6500 } = {}) {
+  return await fetchTextByProviders(sourceUrl, [FETCH_PROVIDER_DIRECT, FETCH_PROVIDER_ALLORIGINS], { label, required, timeoutMs, retries: 0 });
 }
 
 let papaLoadPromise = null;
@@ -2417,9 +2433,10 @@ async function init() {
     setProgressStage('connect');
 
     let usedMergedFeed = false;
-    if (hasConfiguredMergedFeed()) {
+    const skipMergedFeed = shouldSkipMergedFeedOnce();
+    if (hasConfiguredMergedFeed() && !skipMergedFeed) {
       try {
-        const mergedFeed = await fetchJsonSmart(MERGED_PRODUCTS_FEED, { label: 'merged-products', required: true, timeoutMs: 12000 });
+        const mergedFeed = await fetchMergedJsonFast(MERGED_PRODUCTS_FEED, { label: 'merged-products', required: true, timeoutMs: 4200 });
         setProgressStage('parse');
         parseMergedProductsFeed(mergedFeed);
         usedMergedFeed = true;
@@ -2428,12 +2445,15 @@ async function init() {
         setProgressStage('fallback');
         console.warn('[INIT] merged JSON feed failed, fallback to CSV:', feedErr);
       }
+    } else if (skipMergedFeed) {
+      setProgressStage('fallback');
+      console.warn('[INIT] skip merged feed once: forced CSV fallback');
     }
 
     if (!usedMergedFeed) {
       const [resProd, resPitch] = await Promise.all([
-        fetchCsvTextSmart(SHEET_PRODUCTS, { label: "products", required: true }),
-        fetchCsvTextSmart(SHEET_PITCH, { label: "pitch", required: true })
+        fetchCsvCritical(SHEET_PRODUCTS, { label: "products", required: true, timeoutMs: 7000 }),
+        fetchCsvCritical(SHEET_PITCH, { label: "pitch", required: true, timeoutMs: 7000 })
       ]);
       await ensurePapaParse();
       setProgressStage('parse');
@@ -2477,7 +2497,7 @@ async function loadDeferredAuxData() {
   PROMO_LOAD_FAILED = false;
   renderPromotions();
   try {
-    const promoCsv = await fetchCsvTextSmart(SHEET_PROMO, { label: 'promo', required: false });
+    const promoCsv = await fetchCsvDeferred(SHEET_PROMO, { label: 'promo', required: false, timeoutMs: 6500 });
     if (promoCsv) {
       await ensurePapaParse();
       parsePromoCsv(promoCsv);
@@ -2497,7 +2517,7 @@ async function loadDeferredAuxData() {
 
   RANK_LOADING = true;
   try {
-    const rankCsv = await fetchCsvTextSmart(SHEET_RANK, { label: 'rank', required: false });
+    const rankCsv = await fetchCsvDeferred(SHEET_RANK, { label: 'rank', required: false, timeoutMs: 6500 });
     if (rankCsv) {
       await ensurePapaParse();
       processRankings(rankCsv);
