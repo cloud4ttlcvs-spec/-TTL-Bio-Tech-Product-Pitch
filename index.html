@@ -928,7 +928,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 </div>
 
 <div id="ios-prompt">
-  <button class="ios-close" onclick="closeIosPrompt()">
+  <button class="ios-close" data-action="close-ios-prompt">
     <span class="material-icons-round">close</span>
   </button>
   <div class="ios-p-text">
@@ -947,7 +947,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
     <div class="loader-milestones" id="loader-milestones"></div>
     <div class="loader-stage-text" id="loading-stage-text">啟動系統…</div>
     <div class="loader-hint-text" id="loading-hint-text">首次啟動可能稍久，請稍候。</div>
-    <button class="loader-error-btn" id="btn-force-reload" onclick="forceClearCache()">載入太久？點此重整</button>
+    <button class="loader-error-btn" id="btn-force-reload" data-action="force-clear-cache">載入太久？點此重整</button>
   </div>
 </div>
 
@@ -958,15 +958,15 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
         <h1 class="text-center">TTL Bio-tech 健康美學</h1>
         <span class="subtitle">台酒生技 產品銷售輔助</span>
       </div>
-      <a href="#" onclick="printCatalog(); return false;" class="btn-pdf">
+      <a href="#" data-action="print-catalog" class="btn-pdf">
         <span class="material-icons-round icon">print</span>
         <span class="txt">列印目錄</span>
       </a>
     </div>
     <div class="search-box">
       <span class="material-icons-round search-icon">search</span>
-      <span class="material-icons-round search-clear" id="search-clear" onclick="clearSearch()">close</span>
-      <input type="text" class="search-input" id="searchInput" placeholder="搜尋產品名稱、關鍵字..." oninput="handleSearch(this.value)">
+      <span class="material-icons-round search-clear" id="search-clear" data-action="clear-search">close</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜尋產品名稱、關鍵字..." data-input-action="handle-search">
     </div>
   </header>
 
@@ -981,11 +981,11 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
       <div class="rank-title"><span class="material-icons-round" style="color:#d81b60">local_fire_department</span> 熱銷排行</div>
     </div>
     <div class="rank-tabs">
-      <div class="r-tab active" onclick="switchRank('all')">全站</div>
-      <div class="r-tab" onclick="switchRank('health')">保健</div>
-      <div class="r-tab" onclick="switchRank('drinks')">飲品</div>
-      <div class="r-tab" onclick="switchRank('beauty')">美容</div>
-      <div class="r-tab" onclick="switchRank('cleaning')">清潔</div>
+      <div class="r-tab active" data-action="switch-rank" data-rank-type="all">全站</div>
+      <div class="r-tab" data-action="switch-rank" data-rank-type="health">保健</div>
+      <div class="r-tab" data-action="switch-rank" data-rank-type="drinks">飲品</div>
+      <div class="r-tab" data-action="switch-rank" data-rank-type="beauty">美容</div>
+      <div class="r-tab" data-action="switch-rank" data-rank-type="cleaning">清潔</div>
     </div>
     <div class="rank-list" id="rankList"></div>
   </div>
@@ -996,39 +996,39 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
     <div class="promo-title-main">
       <span class="material-icons-round">campaign</span> 最新活動
     </div>
-    <button class="btn-back-home" onclick="showMainView()">
+    <button class="btn-back-home" data-action="show-main-view">
       <span class="material-icons-round" style="font-size:16px">arrow_back</span> 回列表
     </button>
   </div>
 
   <div class="promo-filter-container">
     <div class="pf-row-status">
-      <div class="pf-status-btn active" id="st-active" onclick="switchPromoStatus('active')">進行中</div>
-      <div class="pf-status-btn" id="st-expired" onclick="switchPromoStatus('expired')">已結束</div>
+      <div class="pf-status-btn active" id="st-active" data-action="switch-promo-status" data-status="active">進行中</div>
+      <div class="pf-status-btn" id="st-expired" data-action="switch-promo-status" data-status="expired">已結束</div>
     </div>
 
     <div class="pf-row-cats">
-      <div class="pf-cat-btn btn-all active" id="cat-all" onclick="resetPromoCats()">全部</div>
-      <div class="pf-cat-btn" id="cat-health" onclick="togglePromoCat('health')">保健</div>
-      <div class="pf-cat-btn" id="cat-drinks" onclick="togglePromoCat('drinks')">飲品</div>
-      <div class="pf-cat-btn" id="cat-beauty" onclick="togglePromoCat('beauty')">美容</div>
-      <div class="pf-cat-btn" id="cat-cleaning" onclick="togglePromoCat('cleaning')">清潔</div>
+      <div class="pf-cat-btn btn-all active" id="cat-all" data-action="reset-promo-cats">全部</div>
+      <div class="pf-cat-btn" id="cat-health" data-action="toggle-promo-cat" data-cat="health">保健</div>
+      <div class="pf-cat-btn" id="cat-drinks" data-action="toggle-promo-cat" data-cat="drinks">飲品</div>
+      <div class="pf-cat-btn" id="cat-beauty" data-action="toggle-promo-cat" data-cat="beauty">美容</div>
+      <div class="pf-cat-btn" id="cat-cleaning" data-action="toggle-promo-cat" data-cat="cleaning">清潔</div>
     </div>
   </div>
 
   <div class="promo-grid" id="promo-grid"></div>
 
   <div class="promo-floating-nav" id="promo-fab" style="display:block;">
-    <div class="float-btn btn-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+    <div class="float-btn btn-top" data-action="scroll-top">
       <span class="material-icons-round">arrow_upward</span>
     </div>
   </div>
 </div>
 
 
-<div id="promo-modal" onclick="closePromoModal()">
-  <div class="pm-content" onclick="event.stopPropagation()">
-    <button class="pm-close-btn" onclick="closePromoModal()">
+<div id="promo-modal" data-action="close-promo-modal">
+  <div class="pm-content" data-action="stop-propagation">
+    <button class="pm-close-btn" data-action="close-promo-modal">
       <span class="material-icons-round">close</span>
     </button>
     <div class="pm-img-wrap">
@@ -1053,49 +1053,49 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 </div>
 
 <div class="floating-nav">
-  <div class="float-btn btn-large-mode" onclick="toggleLargeMode()" title="切換字體/圖片大小">A+</div>
+  <div class="float-btn btn-large-mode" data-action="toggle-large-mode" title="切換字體/圖片大小">A+</div>
   
-  <div class="float-btn" id="btn-install" onclick="installApp()" title="安裝App">
+  <div class="float-btn" id="btn-install" data-action="install-app" title="安裝App">
     <span class="material-icons-round">install_mobile</span>
   </div>
   
-  <div class="float-btn btn-promo-balloon" onclick="showPromoView()" title="促銷活動">
+  <div class="float-btn btn-promo-balloon" data-action="show-promo-view" title="促銷活動">
     <span class="material-icons-round">campaign</span>
   </div>
   
   <div class="fab-menu-group" id="fabMenu">
-    <div class="fab-sub-btn" onclick="window.location.reload()" title="重整資料" style="background:#ffeb3b;color:#37474f;">
+    <div class="fab-sub-btn" data-action="reload-page" title="重整資料" style="background:#ffeb3b;color:#37474f;">
       <span class="material-icons-round" style="font-size:20px">refresh</span>
     </div>
-    <div class="fab-sub-btn" onclick="scrollToId('sec-health')" title="保健">💊</div>
-    <div class="fab-sub-btn" onclick="scrollToId('sec-drinks')" title="飲品">🥤</div>
-    <div class="fab-sub-btn" onclick="scrollToId('sec-beauty')" title="美容">💄</div>
-    <div class="fab-sub-btn" onclick="scrollToId('sec-cleaning')" title="清潔">🧼</div>
+    <div class="fab-sub-btn" data-action="scroll-to-id" data-target-id="sec-health" title="保健">💊</div>
+    <div class="fab-sub-btn" data-action="scroll-to-id" data-target-id="sec-drinks" title="飲品">🥤</div>
+    <div class="fab-sub-btn" data-action="scroll-to-id" data-target-id="sec-beauty" title="美容">💄</div>
+    <div class="fab-sub-btn" data-action="scroll-to-id" data-target-id="sec-cleaning" title="清潔">🧼</div>
     
-    <div class="float-btn fab-trigger" onclick="toggleFabMenu()">
+    <div class="float-btn fab-trigger" data-action="toggle-fab-menu">
       <span class="material-icons-round" id="fabIcon">menu</span>
     </div>
   </div>
 
-  <div class="float-btn btn-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+  <div class="float-btn btn-top" data-action="scroll-top">
     <span class="material-icons-round">arrow_upward</span>
   </div>
 </div>
 
-<div id="lightbox" onclick="uiCloseLightbox()">
+<div id="lightbox" data-action="ui-close-lightbox">
   <span class="material-icons-round lb-close">close</span>
-  <img id="lb-img" src="" onclick="event.stopPropagation()">
+  <img id="lb-img" src="" data-action="stop-propagation">
 </div>
 
 
-<div id="media-sheet" onclick="closeProductMoreSheet()">
-  <div class="ms-panel" onclick="event.stopPropagation()">
+<div id="media-sheet" data-action="close-product-more-sheet">
+  <div class="ms-panel" data-action="stop-propagation">
     <div class="ms-head">
       <div class="ms-title">
         <span class="material-icons-round" style="font-size:18px;color:#546e7a">collections_bookmark</span>
         更多素材
       </div>
-      <button class="ms-close" onclick="closeProductMoreSheet()">
+      <button class="ms-close" data-action="close-product-more-sheet">
         <span class="material-icons-round">close</span>
       </button>
     </div>
@@ -1104,8 +1104,8 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
   </div>
 </div>
 
-<div id="video-modal" onclick="closeVideoModal()">
-  <div class="vm-panel" onclick="event.stopPropagation()">
+<div id="video-modal" data-action="close-video-modal">
+  <div class="vm-panel" data-action="stop-propagation">
     <div class="vm-head">
       <div class="vm-title-wrap">
         <div class="vm-title">
@@ -1115,11 +1115,11 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
         <div class="vm-sub" id="vm-subtitle"></div>
       </div>
       <div class="vm-actions">
-        <button class="vm-action primary" id="vm-external-btn" onclick="openCurrentVideoExternally(event)">
+        <button class="vm-action primary" id="vm-external-btn" data-action="open-current-video-externally">
           <span class="material-icons-round" style="font-size:18px">open_in_new</span>
           外部開啟
         </button>
-        <button class="vm-close" onclick="closeVideoModal()">
+        <button class="vm-close" data-action="close-video-modal">
           <span class="material-icons-round">close</span>
         </button>
       </div>
@@ -1137,8 +1137,8 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
     <div class="exit-title">確定要離開嗎？</div>
     <div class="exit-desc">您即將離開話術系統，<br>是否確定退出？</div>
     <div class="exit-actions">
-      <button class="btn-exit cancel" onclick="stayOnPage()">留在此頁</button>
-      <button class="btn-exit confirm" onclick="confirmExit()">確認離開</button>
+      <button class="btn-exit cancel" data-action="stay-on-page">留在此頁</button>
+      <button class="btn-exit confirm" data-action="confirm-exit">確認離開</button>
     </div>
   </div>
 </div>
@@ -1148,7 +1148,7 @@ body.large-mode .fab-sub-btn { width: 45px; height: 45px; font-size: 20px; }
 <div id="update-toast">
   <span class="material-icons-round" style="color:#ffeb3b">system_update</span>
   <div>發現新版本</div>
-  <button class="btn-update" onclick="updateApp()">更新</button>
+  <button class="btn-update" data-action="update-app">更新</button>
 </div>
 
 <div id="print-container" style="display:none;"></div>
@@ -2149,10 +2149,155 @@ window.addEventListener('click', function(e) {
 });
 
 // --- HISTORY & BACK LOGIC ---
-window.onload = function() {
-  history.replaceState({page: 'root'}, document.title);
-  history.pushState({page: 'home'}, document.title);
-  
+function handleActionClick(actionEl, event) {
+  if (!actionEl) return;
+  const action = actionEl.dataset.action || '';
+  if (!action) return;
+
+  switch (action) {
+    case 'stop-propagation':
+      event.stopPropagation();
+      return;
+    case 'close-ios-prompt':
+      closeIosPrompt();
+      return;
+    case 'force-clear-cache':
+      forceClearCache();
+      return;
+    case 'print-catalog':
+      event.preventDefault();
+      printCatalog();
+      return;
+    case 'clear-search':
+      clearSearch();
+      return;
+    case 'switch-rank':
+      switchRank(actionEl.dataset.rankType || 'all', actionEl);
+      return;
+    case 'show-main-view':
+      showMainView();
+      return;
+    case 'switch-promo-status':
+      switchPromoStatus(actionEl.dataset.status || 'active');
+      return;
+    case 'reset-promo-cats':
+      resetPromoCats();
+      return;
+    case 'toggle-promo-cat':
+      togglePromoCat(actionEl.dataset.cat || '');
+      return;
+    case 'scroll-top':
+      window.scrollTo({top:0, behavior:'smooth'});
+      return;
+    case 'close-promo-modal':
+      closePromoModal();
+      return;
+    case 'toggle-large-mode':
+      toggleLargeMode();
+      return;
+    case 'install-app':
+      installApp();
+      return;
+    case 'show-promo-view':
+      showPromoView();
+      return;
+    case 'reload-page':
+      window.location.reload();
+      return;
+    case 'scroll-to-id':
+      scrollToId(actionEl.dataset.targetId || '');
+      return;
+    case 'toggle-fab-menu':
+      toggleFabMenu();
+      return;
+    case 'ui-close-lightbox':
+      uiCloseLightbox();
+      return;
+    case 'close-product-more-sheet':
+      closeProductMoreSheet();
+      return;
+    case 'close-video-modal':
+      closeVideoModal();
+      return;
+    case 'open-current-video-externally':
+      openCurrentVideoExternally(event);
+      return;
+    case 'stay-on-page':
+      stayOnPage();
+      return;
+    case 'confirm-exit':
+      confirmExit();
+      return;
+    case 'update-app':
+      updateApp();
+      return;
+    case 'show-channel-toast':
+      event.stopPropagation();
+      showChannelToast(actionEl.dataset.toastText || '');
+      return;
+    case 'open-product-video':
+      event.stopPropagation();
+      openProductVideo(event, actionEl.dataset.code || '');
+      return;
+    case 'open-product-more':
+      event.stopPropagation();
+      openProductMoreSheet(event, actionEl.dataset.code || '');
+      return;
+    case 'go-to-promo-detail':
+      goToPromoDetail(actionEl.dataset.promoId || '', event);
+      return;
+    case 'apply-tag-filter':
+      applyTagFilter(event, actionEl.dataset.tag || '');
+      return;
+    case 'copy-product-share':
+      copyProductShare(actionEl.dataset.code || '', event);
+      return;
+    case 'product-image-click':
+      onProductImageClick({
+        ...event,
+        currentTarget: actionEl
+      }, actionEl.dataset.src || '');
+      return;
+    case 'open-promo-modal':
+      openPromoModal(actionEl.dataset.promoId || '', event);
+      return;
+    case 'jump-to-product':
+      jumpToProduct(actionEl.dataset.targetId || '');
+      return;
+    case 'toggle-accordion':
+      toggleAccordion(actionEl, event);
+      return;
+    default:
+      return;
+  }
+}
+
+function bindInteractionEventLayer() {
+  if (window.__ttlInteractionLayerBound) return;
+  window.__ttlInteractionLayerBound = true;
+
+  document.addEventListener('click', function(event) {
+    const actionEl = event.target && event.target.closest ? event.target.closest('[data-action]') : null;
+    if (!actionEl) return;
+    handleActionClick(actionEl, event);
+  });
+
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput && !searchInput.dataset.inputBound) {
+    searchInput.addEventListener('input', function(event) {
+      const action = event.target && event.target.dataset ? event.target.dataset.inputAction : '';
+      if (action === 'handle-search') {
+        handleSearch(event.target.value);
+      }
+    });
+    searchInput.dataset.inputBound = '1';
+  }
+}
+
+function bindHistoryNavigation() {
+  if (window.__ttlHistoryNavigationBound) return;
+  window.__ttlHistoryNavigationBound = true;
+
   window.addEventListener('popstate', function(event) {
     const state = event.state;
     const pm = document.getElementById("promo-modal");
@@ -2204,6 +2349,13 @@ window.onload = function() {
       showExitModal();
     }
   });
+}
+
+window.onload = function() {
+  history.replaceState({page: 'root'}, document.title);
+  history.pushState({page: 'home'}, document.title);
+  bindInteractionEventLayer();
+  bindHistoryNavigation();
 };
 
 function showExitModal() { document.getElementById("exit-modal").classList.add("show"); }
@@ -2683,7 +2835,8 @@ function renderRankingList(type) {
     const div = document.createElement("div");
     div.className = "r-card";
     div.dataset.rank = idx + 1;
-    div.onclick = () => jumpToProduct(p.id);
+    div.dataset.action = 'jump-to-product';
+    div.dataset.targetId = p.id;
     const safePhoto = escapeHtmlAttr(p.photo);
     let img = p.photo && p.photo.length>5 ? `<img src="${safePhoto}" data-src="${safePhoto}" class="r-img" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">` : `<div style="font-size:10px;color:#ccc">無圖</div>`;
     div.innerHTML = `<div class="r-img-wrap"><div class="r-badge">${idx+1}</div>${img}</div><div class="r-name">${p.name}</div>`;
@@ -2691,9 +2844,10 @@ function renderRankingList(type) {
   });
 }
 
-function switchRank(type) {
+function switchRank(type, triggerEl = null) {
   document.querySelectorAll(".r-tab").forEach(el => el.classList.remove("active"));
-  event.target.classList.add("active");
+  const targetEl = triggerEl || document.querySelector(`.r-tab[data-rank-type="${CSS.escape(String(type || ''))}"]`);
+  if (targetEl) targetEl.classList.add("active");
   renderRankingList(type);
 }
 
@@ -2835,10 +2989,11 @@ function renderPromotions() {
     card.className = "promo-card";
     if(!isActive) card.classList.add('expired');
     card.id = "promo-" + promo.id;
+    card.dataset.action = 'open-promo-modal';
+    card.dataset.promoId = promo.id;
     if(promo.color && promo.color !== '#fff' && isActive) card.style.background = promo.color;
 
     const imgHtml = promo.img ? `<img src="${promo.img}" class="promo-img">` : `<span class="material-icons-round" style="color:#ccc">image</span>`;
-    card.onclick = () => openPromoModal(promo.id);
 
     let iconsHtml = getChannelIconsHtml(promo);
 
@@ -2876,14 +3031,13 @@ function getChannelNames(promo) {
 
 function getChannelIconsHtml(promo) {
   let iconsHtml = "";
-  // Get combined text for ANY icon click
-  let allChannelsText = getChannelNames(promo);
+  let allChannelsText = escapeAttr(getChannelNames(promo));
   
   if(promo.ch) {
-    if(promo.ch.show) iconsHtml += `<div class="c-icon showroom" onclick="showChannelToast('${allChannelsText}');event.stopPropagation()"><span class="material-icons-round">store</span></div>`;
-    if(promo.ch.mart) iconsHtml += `<div class="c-icon mart" onclick="showChannelToast('${allChannelsText}');event.stopPropagation()"><span class="material-icons-round">shopping_bag</span></div>`;
-    if(promo.ch.eshop) iconsHtml += `<div class="c-icon eshop" onclick="showChannelToast('${allChannelsText}');event.stopPropagation()"><span class="material-icons-round">shopping_cart</span></div>`;
-    if(promo.ch.office) iconsHtml += `<div class="c-icon office" onclick="showChannelToast('${allChannelsText}');event.stopPropagation()"><span class="material-icons-round">business</span></div>`;
+    if(promo.ch.show) iconsHtml += `<div class="c-icon showroom" data-action="show-channel-toast" data-toast-text="${allChannelsText}"><span class="material-icons-round">store</span></div>`;
+    if(promo.ch.mart) iconsHtml += `<div class="c-icon mart" data-action="show-channel-toast" data-toast-text="${allChannelsText}"><span class="material-icons-round">shopping_bag</span></div>`;
+    if(promo.ch.eshop) iconsHtml += `<div class="c-icon eshop" data-action="show-channel-toast" data-toast-text="${allChannelsText}"><span class="material-icons-round">shopping_cart</span></div>`;
+    if(promo.ch.office) iconsHtml += `<div class="c-icon office" data-action="show-channel-toast" data-toast-text="${allChannelsText}"><span class="material-icons-round">business</span></div>`;
   }
   return iconsHtml;
 }
@@ -3008,12 +3162,13 @@ function buildProductMediaControls(p) {
   const hasVideo = videoUrl.length > 5;
   const hasMore = moreLinksRaw.length > 3;
   const safeId = safeDomId(p.code);
+  const safeCode = escapeAttr(p.code);
   const isSeen = hasVideo ? isVideoSeen(p.code, videoUrl) : true;
 
   return {
     videoHintHtml: hasVideo ? `<div class="video-hint ${isSeen ? 'seen' : 'new'}" id="vh-${safeId}"><span class="material-icons-round">play_arrow</span></div>` : '',
-    playBtnHtml: hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" onclick="openProductVideo(event, '${p.code}')"><span class="material-icons-round">play_arrow</span></div>` : '',
-    moreBtnHtml: hasMore ? `<div class="btn-media btn-more" id="btn-more-${safeId}" onclick="openProductMoreSheet(event, '${p.code}')"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ''
+    playBtnHtml: hasVideo ? `<div class="btn-media icon-only btn-play" title="播放" data-action="open-product-video" data-code="${safeCode}"><span class="material-icons-round">play_arrow</span></div>` : '',
+    moreBtnHtml: hasMore ? `<div class="btn-media btn-more" id="btn-more-${safeId}" data-action="open-product-more" data-code="${safeCode}"><span class="material-icons-round" style="font-size:16px">more_horiz</span> 更多</div>` : ''
   };
 }
 
@@ -3023,10 +3178,22 @@ function buildProductPromoStickerHtml(p) {
   let stickerHtml = '';
   PRODUCT_TO_PROMO_MAP.get(p.code).forEach(pr => {
     if (isPromoActive(pr)) {
-      stickerHtml += `<div class="promo-sticker" onclick="goToPromoDetail('${pr.id}')"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
+      stickerHtml += `<div class="promo-sticker" data-action="go-to-promo-detail" data-promo-id="${escapeAttr(pr.id)}"><span class="material-icons-round" style="font-size:10px">local_offer</span>${pr.title}</div>`;
     }
   });
   return stickerHtml;
+}
+
+function buildProductShareText(p) {
+  return `【 ✨ 產品推薦 】
+🌿 ${p.name}
+-------------------
+💬 主打：${p.pitch?.title || ''}
+📝 特色：${p.pitch?.content || ''}
+💰 優惠價：$${p.price.toLocaleString()}
+${p.pitch?.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}
+-------------------
+(台酒生技)`;
 }
 
 function buildProductPitchDetail(p, filterText, activeTagNorm) {
@@ -3041,21 +3208,12 @@ function buildProductPitchDetail(p, filterText, activeTagNorm) {
   if (p.pitch.tags) {
     tagsHtml = `<div class="pitch-tags">` + getTagList(p.pitch.tags).map(tag => {
       const isActiveTag = activeTagNorm && normalizeTag(tag) === activeTagNorm;
-      return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-tag="${escapeAttr(tag)}" onclick="applyTagFilter(event, this.dataset.tag)" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
+      return `<span class="tag tag-clickable ${isActiveTag ? 'active' : ''}" data-action="apply-tag-filter" data-tag="${escapeAttr(tag)}" title="找出相同標籤商品">#${highlightText(tag, filterText)}</span>`;
     }).join('') + `</div>`;
   }
 
   const detailContent = `${p.pitch.title ? `<div class="pitch-title">${highlightText(p.pitch.title, filterText)}</div>` : ''}${p.pitch.content ? `<div class="pitch-content">${p.pitch.content}</div>` : ''}${tagsHtml}`;
-  const shareText = `【 ✨ 產品推薦 】
-🌿 ${p.name}
--------------------
-💬 主打：${p.pitch.title || ''}
-📝 特色：${p.pitch.content || ''}
-💰 優惠價：$${p.price.toLocaleString()}
-${p.pitch.tags ? p.pitch.tags.split(',').map(t=>'#'+t.trim()).join(' ') : ''}
--------------------
-(台酒生技)`;
-  const shareBtnHtml = `<div class="btn-share" onclick="copyShare(this, \`${shareText.replace(/`/g, "\\`")}\`)"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
+  const shareBtnHtml = `<div class="btn-share" data-action="copy-product-share" data-code="${escapeAttr(p.code)}"><span class="material-icons-round" style="font-size:16px">link</span> Share</div>`;
 
   return { detailContent, shareBtnHtml };
 }
@@ -3066,9 +3224,8 @@ function buildProductImageHtml(p, videoHintHtml) {
   }
 
   const safePhotoAttr = escapeHtmlAttr(p.photo);
-  const photoJs = JSON.stringify(p.photo);
   return `
-      <div class="p-img-box" onclick='onProductImageClick(event, ${photoJs})'>
+      <div class="p-img-box" data-action="product-image-click" data-src="${safePhotoAttr}">
       <img src="${safePhotoAttr}" data-src="${safePhotoAttr}" loading="lazy" decoding="async" onload="handleCatalogImageLoad(this)" onerror="handleCatalogImageError(this)">
       ${videoHintHtml}
       <div class="zoom-hint"><span class="material-icons-round">zoom_in</span></div>
@@ -3093,7 +3250,7 @@ function buildProductCard(p, filterText, activeTagNorm) {
   const card = document.createElement("div");
   card.className = "p-card";
   card.id = p.id;
-  card.onclick = () => toggleAccordion(card);
+  card.dataset.action = 'toggle-accordion';
 
   card.innerHTML = `
     ${newBadgeHtml}
@@ -3152,8 +3309,9 @@ function getFilteredSectionItems(sectionKey, filterText, activeTagNorm) {
 function createTopNavPill(sectionData) {
   const pill = document.createElement('div');
   pill.className = 'nav-pill';
+  pill.dataset.action = 'scroll-to-id';
+  pill.dataset.targetId = sectionData.id;
   pill.innerHTML = `<span class="material-icons-round" style="font-size:14px">${sectionData.icon}</span> ${sectionData.title}`;
-  pill.onclick = () => scrollToId(sectionData.id);
   return pill;
 }
 
@@ -3319,11 +3477,12 @@ function onProductImageClick(e, src) {
   if (box && box.classList.contains('is-fallback')) return;
   if (img && img.classList.contains('img-fallback')) return;
   const card = box.closest('.p-card');
+  if (!card) return;
   if (card.classList.contains('active')) {
     e.stopPropagation();
     openLightbox(e, src);
   } else {
-    // Let it bubble to card onclick
+    toggleAccordion(card, e);
   }
 }
 
@@ -3341,14 +3500,20 @@ function uiCloseLightbox() {
   history.back();
 }
 
-function copyShare(btn, text) {
-  event.stopPropagation();
+function copyShare(text, e) {
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   navigator.clipboard.writeText(text).then(() => {
     const toast = document.getElementById("toast");
     toast.innerHTML = `<span class="material-icons-round">check_circle</span> 已複製銷售文案`;
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 2000);
   });
+}
+
+function copyProductShare(code, e) {
+  const p = PRODUCT_MAP.get(code);
+  if (!p) return;
+  copyShare(buildProductShareText(p), e);
 }
 
 function scrollToId(id) {
@@ -3378,8 +3543,10 @@ function jumpToProduct(elementId) {
   }, 300);
 }
 
-function toggleAccordion(clickedCard) {
-  if(event.target.classList.contains('promo-sticker') || event.target.parentElement.classList.contains('promo-sticker')) return;
+function toggleAccordion(clickedCard, e = null) {
+  const target = e && e.target ? e.target : null;
+  const nestedAction = target && target.closest ? target.closest('[data-action]') : null;
+  if (nestedAction && nestedAction !== clickedCard) return;
 
   const isActive = clickedCard.classList.contains('active');
   
@@ -3460,8 +3627,8 @@ function showMainView(pushHistory = true) {
 }
 
 // --- PROMO MODAL LOGIC (UPDATED V4.1) ---
-function openPromoModal(promoId) {
-  event.stopPropagation();
+function openPromoModal(promoId, e = null) {
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   const promo = PROMO_MAP.get(promoId);
   if(!promo) return;
 
@@ -3516,10 +3683,8 @@ function ensurePromoVisibleInList(promoId) {
   if (shouldRender || !document.getElementById('promo-' + promoId)) renderPromotions();
 }
 
-function goToPromoDetail(promoId) {
-  if (typeof event !== 'undefined' && event && typeof event.stopPropagation === 'function') {
-    event.stopPropagation();
-  }
+function goToPromoDetail(promoId, e = null) {
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   ensurePromoVisibleInList(promoId);
   showPromoView(promoId);
   setTimeout(() => openPromoModal(promoId), 500); 
@@ -3665,6 +3830,7 @@ function showUpdateToast() {
   document.getElementById('update-toast').classList.add('show');
 }
 
+bindInteractionEventLayer();
 init();
 </script>
 </body>
