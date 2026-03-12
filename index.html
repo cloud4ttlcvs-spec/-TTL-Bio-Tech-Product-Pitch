@@ -2190,12 +2190,12 @@ window.onload = function() {
       return;
     }
 
-    if (activeTagFilter && (!state || state.page !== 'tag-filter')) {
+    if (getProductViewState().activeTagFilter && (!state || state.page !== 'tag-filter')) {
       restoreFromTagFilter(state && state.cardId ? state.cardId : '');
       return;
     }
 
-    if (activeSearchTerm && (!state || state.page !== 'search')) {
+    if (getProductViewState().activeSearchTerm && (!state || state.page !== 'search')) {
       restoreFromSearch();
       return;
     }
@@ -2697,12 +2697,40 @@ function switchRank(type) {
   renderRankingList(type);
 }
 
-// --- PROMO RENDER & FILTER (V5.0 Multi-Filter Logic) ---
-let currentPromoStatus = 'active'; // 'active' or 'expired'
-let selectedPromoCats = new Set(); // Empty set = All
+// --- APP STATE ---
+const APP_STATE = {
+  productView: {
+    activeTagFilter: '',
+    tagFilterSourceCardId: '',
+    activeSearchTerm: '',
+    hasSearchHistoryEntry: false,
+    renderJobToken: 0,
+    searchDebounceTimer: null
+  },
+  promoView: {
+    currentStatus: 'active',
+    selectedCats: new Set()
+  }
+};
 
+function getProductViewState() {
+  return APP_STATE.productView;
+}
+
+function getPromoViewState() {
+  return APP_STATE.promoView;
+}
+
+function nextRenderJobToken() {
+  const state = getProductViewState();
+  state.renderJobToken += 1;
+  return state.renderJobToken;
+}
+
+// --- PROMO RENDER & FILTER (V5.0 Multi-Filter Logic) ---
 function switchPromoStatus(status) {
-  currentPromoStatus = status;
+  const state = getPromoViewState();
+  state.currentStatus = status;
 
   // UI Toggle
   document.getElementById('st-active').classList.toggle('active', status === 'active');
@@ -2712,28 +2740,31 @@ function switchPromoStatus(status) {
 }
 
 function togglePromoCat(cat) {
-  if (selectedPromoCats.has(cat)) {
-    selectedPromoCats.delete(cat);
+  const state = getPromoViewState();
+  if (state.selectedCats.has(cat)) {
+    state.selectedCats.delete(cat);
   } else {
-    selectedPromoCats.add(cat);
+    state.selectedCats.add(cat);
   }
   updateCatUI();
   renderPromotions();
 }
 
 function resetPromoCats() {
-  selectedPromoCats.clear();
+  const state = getPromoViewState();
+  state.selectedCats.clear();
   updateCatUI();
   renderPromotions();
 }
 
 function updateCatUI() {
+  const state = getPromoViewState();
   // If set is empty, "All" is active
-  const isAll = (selectedPromoCats.size === 0);
+  const isAll = (state.selectedCats.size === 0);
   document.getElementById('cat-all').classList.toggle('active', isAll);
 
   ['health', 'drinks', 'beauty', 'cleaning'].forEach(c => {
-    document.getElementById('cat-' + c).classList.toggle('active', selectedPromoCats.has(c));
+    document.getElementById('cat-' + c).classList.toggle('active', state.selectedCats.has(c));
   });
 }
 
@@ -2786,15 +2817,16 @@ function renderPromotions() {
   }
 
   let hasData = false;
+  const promoState = getPromoViewState();
 
   PROMO_LIST.forEach(promo => {
     const isActive = isPromoActive(promo);
-    if (currentPromoStatus === 'active' && !isActive) return;
-    if (currentPromoStatus === 'expired' && isActive) return;
+    if (promoState.currentStatus === 'active' && !isActive) return;
+    if (promoState.currentStatus === 'expired' && isActive) return;
 
-    if (selectedPromoCats.size > 0) {
+    if (promoState.selectedCats.size > 0) {
       const pCats = getPromoCategories(promo);
-      const intersect = pCats.some(c => selectedPromoCats.has(c));
+      const intersect = pCats.some(c => promoState.selectedCats.has(c));
       if (!intersect) return;
     }
 
@@ -2893,14 +2925,9 @@ function productHasTag(product, targetTag) {
   return getTagList(product?.pitch?.tags).some(tag => normalizeTag(tag) === target);
 }
 
-let activeTagFilter = '';
-let tagFilterSourceCardId = '';
-let activeSearchTerm = '';
-let hasSearchHistoryEntry = false;
-let renderJobToken = 0;
-
 function getCurrentRenderFilterText() {
-  return activeTagFilter || activeSearchTerm || '';
+  const state = getProductViewState();
+  return state.activeTagFilter || state.activeSearchTerm || '';
 }
 
 function updateRankingVisibility(filterText = '') {
@@ -2928,8 +2955,9 @@ function reopenProductCard(cardId, scrollIntoView = true) {
 }
 
 function restoreFromSearch() {
-  activeSearchTerm = '';
-  hasSearchHistoryEntry = false;
+  const state = getProductViewState();
+  state.activeSearchTerm = '';
+  state.hasSearchHistoryEntry = false;
   const input = document.getElementById('searchInput');
   if (input) {
     input.value = '';
@@ -2940,34 +2968,36 @@ function restoreFromSearch() {
 }
 
 function restoreFromTagFilter(returnCardId) {
-  activeTagFilter = '';
-  activeSearchTerm = '';
-  hasSearchHistoryEntry = false;
+  const state = getProductViewState();
+  state.activeTagFilter = '';
+  state.activeSearchTerm = '';
+  state.hasSearchHistoryEntry = false;
   const input = document.getElementById('searchInput');
   if (input) input.value = '';
   renderUI('');
   const ranking = document.getElementById("ranking-section");
   if (ranking) ranking.style.display = 'block';
-  const reopenId = returnCardId || tagFilterSourceCardId;
-  tagFilterSourceCardId = '';
+  const reopenId = returnCardId || state.tagFilterSourceCardId;
+  state.tagFilterSourceCardId = '';
   reopenProductCard(reopenId, true);
 }
 
 function applyTagFilter(e, tag) {
+  const state = getProductViewState();
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
   const sourceCard = e && e.currentTarget ? e.currentTarget.closest('.p-card') : document.querySelector('.p-card.active');
-  tagFilterSourceCardId = sourceCard ? sourceCard.id : '';
-  activeSearchTerm = '';
-  hasSearchHistoryEntry = false;
-  activeTagFilter = String(tag || '').trim().replace(/^#/, '');
+  state.tagFilterSourceCardId = sourceCard ? sourceCard.id : '';
+  state.activeSearchTerm = '';
+  state.hasSearchHistoryEntry = false;
+  state.activeTagFilter = String(tag || '').trim().replace(/^#/, '');
   const input = document.getElementById('searchInput');
-  if (input) input.value = activeTagFilter;
-  history.pushState({page: 'tag-filter', tag: activeTagFilter, returnCardId: tagFilterSourceCardId}, document.title);
-  renderUI(activeTagFilter);
-  updateRankingVisibility(activeTagFilter);
+  if (input) input.value = state.activeTagFilter;
+  history.pushState({page: 'tag-filter', tag: state.activeTagFilter, returnCardId: state.tagFilterSourceCardId}, document.title);
+  renderUI(state.activeTagFilter);
+  updateRankingVisibility(state.activeTagFilter);
   const main = document.getElementById('main-container');
   if (main) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -3186,7 +3216,7 @@ function enqueueChunkedSectionJobs(sectionJobs, filterText, activeTagNorm, first
 
 function pumpChunkedSectionJobs(queue, renderToken, chunkSize, filterText, activeTagNorm) {
   const pump = () => {
-    if (renderToken !== renderJobToken) return;
+    if (renderToken !== getProductViewState().renderJobToken) return;
 
     let remainingBudget = chunkSize;
     while (queue.length && remainingBudget > 0) {
@@ -3201,7 +3231,7 @@ function pumpChunkedSectionJobs(queue, renderToken, chunkSize, filterText, activ
 
     if (queue.length) {
       requestAnimationFrame(pump);
-    } else if (renderToken === renderJobToken) {
+    } else if (renderToken === getProductViewState().renderJobToken) {
       setupScrollSpy();
     }
   };
@@ -3211,10 +3241,10 @@ function pumpChunkedSectionJobs(queue, renderToken, chunkSize, filterText, activ
 
 function renderUI(filterText = "", options = {}) {
   const { chunked = false, firstBatch = 12, chunkSize = 12 } = options || {};
-  const renderToken = ++renderJobToken;
+  const renderToken = nextRenderJobToken();
   const container = document.getElementById("main-container");
   const nav = document.getElementById("topNav");
-  const activeTagNorm = normalizeTag(activeTagFilter);
+  const activeTagNorm = normalizeTag(getProductViewState().activeTagFilter);
   const searchInputEl = document.getElementById('searchInput');
   const rawSearchValue = searchInputEl ? String(searchInputEl.value || '') : '';
 
@@ -3227,54 +3257,55 @@ function renderUI(filterText = "", options = {}) {
 
   if (!chunked) {
     renderSectionJobsImmediate(sectionJobs, filterText, activeTagNorm);
-    if (renderToken === renderJobToken) setupScrollSpy();
+    if (renderToken === getProductViewState().renderJobToken) setupScrollSpy();
     return;
   }
 
   const queue = enqueueChunkedSectionJobs(sectionJobs, filterText, activeTagNorm, firstBatch);
   if (!queue.length) {
-    if (renderToken === renderJobToken) setupScrollSpy();
+    if (renderToken === getProductViewState().renderJobToken) setupScrollSpy();
     return;
   }
 
   pumpChunkedSectionJobs(queue, renderToken, chunkSize, filterText, activeTagNorm);
 }
 
-let searchTimeout;
 function handleSearch(val) {
-  activeTagFilter = '';
-  tagFilterSourceCardId = '';
+  const state = getProductViewState();
+  state.activeTagFilter = '';
+  state.tagFilterSourceCardId = '';
   const rawValue = String(val ?? '');
   const clearBtn = document.getElementById('search-clear');
   if (clearBtn) clearBtn.style.display = rawValue ? 'block' : 'none';
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
+  clearTimeout(state.searchDebounceTimer);
+  state.searchDebounceTimer = setTimeout(() => {
     const input = document.getElementById('searchInput');
     const liveValue = input ? String(input.value ?? rawValue) : rawValue;
     const keyword = liveValue.trim();
 
-    if (keyword && !hasSearchHistoryEntry) {
+    if (keyword && !state.hasSearchHistoryEntry) {
       history.pushState({page: 'search', q: keyword}, document.title);
-      hasSearchHistoryEntry = true;
-    } else if (keyword && hasSearchHistoryEntry && history.state && history.state.page === 'search') {
+      state.hasSearchHistoryEntry = true;
+    } else if (keyword && state.hasSearchHistoryEntry && history.state && history.state.page === 'search') {
       history.replaceState({page: 'search', q: keyword}, document.title);
     }
 
     if (!keyword) {
-      hasSearchHistoryEntry = false;
+      state.hasSearchHistoryEntry = false;
     }
 
-    activeSearchTerm = keyword;
+    state.activeSearchTerm = keyword;
     renderUI(keyword);
     updateRankingVisibility(keyword);
   }, 300);
 }
 
 function clearSearch() {
-  activeTagFilter = '';
-  tagFilterSourceCardId = '';
-  activeSearchTerm = '';
-  hasSearchHistoryEntry = false;
+  const state = getProductViewState();
+  state.activeTagFilter = '';
+  state.tagFilterSourceCardId = '';
+  state.activeSearchTerm = '';
+  state.hasSearchHistoryEntry = false;
   document.getElementById('searchInput').value = '';
   const clearBtn = document.getElementById('search-clear');
   if (clearBtn) clearBtn.style.display = 'none';
@@ -3460,28 +3491,29 @@ function ensurePromoVisibleInList(promoId) {
   const promo = PROMO_MAP.get(promoId);
   if (!promo) return;
 
+  const promoState = getPromoViewState();
   const targetStatus = isPromoActive(promo) ? 'active' : 'expired';
   const targetCats = getPromoCategories(promo);
   let shouldRender = false;
 
-  if (currentPromoStatus !== targetStatus) {
-    currentPromoStatus = targetStatus;
+  if (promoState.currentStatus !== targetStatus) {
+    promoState.currentStatus = targetStatus;
     shouldRender = true;
   }
 
-  if (selectedPromoCats.size > 0) {
-    const hasIntersection = targetCats.some(c => selectedPromoCats.has(c));
+  if (promoState.selectedCats.size > 0) {
+    const hasIntersection = targetCats.some(c => promoState.selectedCats.has(c));
     if (!hasIntersection) {
-      selectedPromoCats.clear();
+      promoState.selectedCats.clear();
       shouldRender = true;
     }
   }
 
-  document.getElementById('st-active').classList.toggle('active', currentPromoStatus === 'active');
-  document.getElementById('st-expired').classList.toggle('active', currentPromoStatus === 'expired');
+  document.getElementById('st-active').classList.toggle('active', promoState.currentStatus === 'active');
+  document.getElementById('st-expired').classList.toggle('active', promoState.currentStatus === 'expired');
   updateCatUI();
 
-  if (shouldRender) renderPromotions();
+  if (shouldRender || !document.getElementById('promo-' + promoId)) renderPromotions();
 }
 
 function goToPromoDetail(promoId) {
