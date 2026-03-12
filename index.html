@@ -2012,6 +2012,7 @@ function openVideoModal(code, productName, rawUrl, payload) {
 
   document.body.classList.add('no-scroll');
   modal.classList.add('open');
+  setShellActiveModal('video-modal');
   history.pushState({modal: 'video-modal', code: code}, document.title);
   return true;
 }
@@ -2025,6 +2026,7 @@ function closeVideoModal(pushBack = true) {
   if (playerEl) playerEl.innerHTML = '';
   if (modal) modal.classList.remove('open');
   document.body.classList.remove('no-scroll');
+  syncShellActiveModal();
 }
 
 function openCurrentVideoExternally(e) {
@@ -2108,7 +2110,9 @@ function openProductMoreSheet(e, code) {
   }
 
   document.body.classList.add('no-scroll');
-  document.getElementById('media-sheet').classList.add('open');
+  const mediaSheet = getUiRefs().mediaSheet || document.getElementById('media-sheet');
+  if (mediaSheet) mediaSheet.classList.add('open');
+  setShellActiveModal('media-sheet');
 
   // push history so back closes the sheet first
   history.pushState({modal: 'media-sheet', code: code}, document.title);
@@ -2117,9 +2121,10 @@ function openProductMoreSheet(e, code) {
 function closeProductMoreSheet(pushBack = true) {
   if (pushBack) { history.back(); return; }
   CURRENT_MEDIA_CODE = null;
-  const sheet = document.getElementById('media-sheet');
+  const sheet = getUiRefs().mediaSheet || document.getElementById('media-sheet');
   if (sheet) sheet.classList.remove('open');
   document.body.classList.remove('no-scroll');
+  syncShellActiveModal();
 }
 
 // --- TOGGLE LARGE MODE ---
@@ -2309,34 +2314,40 @@ function bindHistoryNavigation() {
 
   window.addEventListener('popstate', function(event) {
     const state = event.state;
-    const pm = document.getElementById("promo-modal");
-    if (pm.classList.contains("open") && (!state || state.modal !== 'promo-detail')) {
-      pm.classList.remove("open");
-      return;
-    }
-    const lb = document.getElementById("lightbox");
-    if (lb.classList.contains("open") && (!state || state.modal !== 'lightbox')) {
-      lb.classList.remove("open");
+    const refs = getUiRefs();
+
+    if (refs.promoModal && refs.promoModal.classList.contains('open') && (!state || state.modal !== 'promo-detail')) {
+      refs.promoModal.classList.remove('open');
+      syncShellActiveModal();
       return;
     }
 
-    const vm = document.getElementById("video-modal");
-    if (vm && vm.classList.contains("open") && (!state || state.modal !== 'video-modal')) {
+    if (refs.lightbox && refs.lightbox.classList.contains('open') && (!state || state.modal !== 'lightbox')) {
+      refs.lightbox.classList.remove('open');
+      syncShellActiveModal();
+      return;
+    }
+
+    if (refs.videoModal && refs.videoModal.classList.contains('open') && (!state || state.modal !== 'video-modal')) {
       closeVideoModal(false);
       return;
     }
 
-    const ms = document.getElementById("media-sheet");
-    if (ms && ms.classList.contains("open") && (!state || state.modal !== 'media-sheet')) {
+    if (refs.mediaSheet && refs.mediaSheet.classList.contains('open') && (!state || state.modal !== 'media-sheet')) {
       closeProductMoreSheet(false);
       return;
     }
 
-    const promoContainer = document.getElementById("promo-container");
-    if (promoContainer.style.display === "block" && (!state || state.page !== 'promo')) {
+    if (state && state.page === 'promo' && !isPromoViewActive()) {
+      applyPrimaryViewState('promo');
+      return;
+    }
+
+    if (isPromoViewActive() && (!state || state.page !== 'promo')) {
       showMainView(false);
       return;
     }
+
     const activeCard = document.querySelector('.p-card.active');
     if (activeCard && (!state || state.cardId !== activeCard.id)) {
       activeCard.classList.remove('active');
@@ -2361,19 +2372,18 @@ function bindHistoryNavigation() {
 }
 
 window.onload = function() {
-  history.replaceState({page: 'root'}, document.title);
-  history.pushState({page: 'home'}, document.title);
-  bindInteractionEventLayer();
-  bindHistoryNavigation();
+  bootstrapUiShell();
 };
 
-function showExitModal() { document.getElementById("exit-modal").classList.add("show"); }
+function showExitModal() { const exitModal = getUiRefs().exitModal || document.getElementById("exit-modal"); if (exitModal) exitModal.classList.add("show"); }
 function stayOnPage() {
-  document.getElementById("exit-modal").classList.remove("show");
+  const exitModal = getUiRefs().exitModal || document.getElementById("exit-modal");
+  if (exitModal) exitModal.classList.remove("show");
   history.pushState({page: 'home'}, document.title);
 }
 function confirmExit() {
-  document.getElementById("exit-modal").classList.remove("show");
+  const exitModal = getUiRefs().exitModal || document.getElementById("exit-modal");
+  if (exitModal) exitModal.classList.remove("show");
   try { window.close(); } catch(e){}
   history.back();
   setTimeout(() => { window.location.href = 'about:blank'; }, 300);
@@ -2862,6 +2872,11 @@ function switchRank(type, triggerEl = null) {
 
 // --- APP STATE ---
 const APP_STATE = {
+  shell: {
+    currentView: 'main',
+    activeModal: '',
+    historyReady: false
+  },
   productView: {
     activeTagFilter: '',
     tagFilterSourceCardId: '',
@@ -2876,6 +2891,10 @@ const APP_STATE = {
   }
 };
 
+function getShellState() {
+  return APP_STATE.shell;
+}
+
 function getProductViewState() {
   return APP_STATE.productView;
 }
@@ -2888,6 +2907,78 @@ function nextRenderJobToken() {
   const state = getProductViewState();
   state.renderJobToken += 1;
   return state.renderJobToken;
+}
+
+function getUiRefs() {
+  if (!window.__ttlUiRefs) {
+    window.__ttlUiRefs = {
+      mainContainer: document.getElementById('main-container'),
+      stickyHeaderGroup: document.querySelector('.sticky-header-group'),
+      promoContainer: document.getElementById('promo-container'),
+      floatingNav: document.querySelector('.floating-nav'),
+      promoFab: document.getElementById('promo-fab'),
+      promoModal: document.getElementById('promo-modal'),
+      lightbox: document.getElementById('lightbox'),
+      videoModal: document.getElementById('video-modal'),
+      mediaSheet: document.getElementById('media-sheet'),
+      exitModal: document.getElementById('exit-modal')
+    };
+  }
+  return window.__ttlUiRefs;
+}
+
+function setElementDisplay(el, displayValue) {
+  if (el) el.style.display = displayValue;
+}
+
+function applyPrimaryViewState(viewName) {
+  const refs = getUiRefs();
+  const shell = getShellState();
+  const isPromo = viewName === 'promo';
+
+  setElementDisplay(refs.mainContainer, isPromo ? 'none' : 'block');
+  setElementDisplay(refs.stickyHeaderGroup, isPromo ? 'none' : 'block');
+  setElementDisplay(refs.promoContainer, isPromo ? 'block' : 'none');
+  setElementDisplay(refs.floatingNav, isPromo ? 'none' : 'flex');
+  setElementDisplay(refs.promoFab, isPromo ? 'block' : 'none');
+
+  shell.currentView = isPromo ? 'promo' : 'main';
+}
+
+function isPromoViewActive() {
+  const refs = getUiRefs();
+  const shell = getShellState();
+  if (shell.currentView === 'promo') return true;
+  return !!(refs.promoContainer && refs.promoContainer.style.display === 'block');
+}
+
+function setShellActiveModal(modalName) {
+  getShellState().activeModal = modalName || '';
+}
+
+function syncShellActiveModal() {
+  const refs = getUiRefs();
+  if (refs.promoModal && refs.promoModal.classList.contains('open')) return setShellActiveModal('promo-detail');
+  if (refs.lightbox && refs.lightbox.classList.contains('open')) return setShellActiveModal('lightbox');
+  if (refs.videoModal && refs.videoModal.classList.contains('open')) return setShellActiveModal('video-modal');
+  if (refs.mediaSheet && refs.mediaSheet.classList.contains('open')) return setShellActiveModal('media-sheet');
+  return setShellActiveModal('');
+}
+
+function initializeShellHistory() {
+  const shell = getShellState();
+  if (shell.historyReady) return;
+  history.replaceState({page: 'root'}, document.title);
+  history.pushState({page: 'home'}, document.title);
+  shell.historyReady = true;
+}
+
+function bootstrapUiShell() {
+  initializeShellHistory();
+  bindInteractionEventLayer();
+  bindHistoryNavigation();
+  applyPrimaryViewState('main');
+  syncShellActiveModal();
 }
 
 // --- PROMO RENDER & FILTER (V5.0 Multi-Filter Logic) ---
@@ -3499,10 +3590,11 @@ function openLightbox(e, src) {
   if(!src || src.length < 5) return;
   if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   history.pushState({modal: 'lightbox'}, document.title);
-  const lb = document.getElementById("lightbox");
+  const lb = getUiRefs().lightbox || document.getElementById("lightbox");
   const img = document.getElementById("lb-img");
   img.src = src;
-  lb.classList.add("open");
+  if (lb) lb.classList.add("open");
+  setShellActiveModal('lightbox');
 }
 
 function uiCloseLightbox() { 
@@ -3603,11 +3695,7 @@ function showPromoView(targetId) {
     history.pushState({page: 'promo'}, document.title);
   }
 
-  document.getElementById("main-container").style.display = 'none';
-  document.querySelector('.sticky-header-group').style.display = 'none';
-  document.getElementById("promo-container").style.display = 'block';
-  document.querySelector('.floating-nav').style.display = 'none';
-  document.getElementById('promo-fab').style.display = 'block';
+  applyPrimaryViewState('promo');
 
   if (!PROMO_READY) renderPromotions();
   window.scrollTo({top: 0});
@@ -3627,11 +3715,7 @@ function showPromoView(targetId) {
 function showMainView(pushHistory = true) {
   if (pushHistory) history.back();
   else {
-    document.getElementById("main-container").style.display = 'block';
-    document.querySelector('.sticky-header-group').style.display = 'block';
-    document.getElementById("promo-container").style.display = 'none';
-    document.querySelector('.floating-nav').style.display = 'flex';
-    document.getElementById('promo-fab').style.display = 'none';
+    applyPrimaryViewState('main');
   }
 }
 
@@ -3656,7 +3740,9 @@ function openPromoModal(promoId, e = null) {
   document.getElementById('pm-date').innerText = promo.start + " ~ " + promo.end;
   document.getElementById('pm-desc').innerText = promo.content;
 
-  document.getElementById('promo-modal').classList.add('open');
+  const promoModal = getUiRefs().promoModal || document.getElementById('promo-modal');
+  if (promoModal) promoModal.classList.add('open');
+  setShellActiveModal('promo-detail');
 }
 
 function closePromoModal() {
