@@ -2247,15 +2247,24 @@ function handleActionClick(actionEl, event) {
       goToPromoDetail(actionEl.dataset.promoId || '', event);
       return;
     case 'apply-tag-filter':
-      applyTagFilter(event, actionEl.dataset.tag || '');
+      applyTagFilter({
+        originalEvent: event,
+        currentTarget: actionEl,
+        target: event.target,
+        preventDefault: () => event.preventDefault(),
+        stopPropagation: () => event.stopPropagation()
+      }, actionEl.dataset.tag || '');
       return;
     case 'copy-product-share':
       copyProductShare(actionEl.dataset.code || '', event);
       return;
     case 'product-image-click':
       onProductImageClick({
-        ...event,
-        currentTarget: actionEl
+        originalEvent: event,
+        currentTarget: actionEl,
+        target: event.target,
+        preventDefault: () => event.preventDefault(),
+        stopPropagation: () => event.stopPropagation()
       }, actionEl.dataset.src || '');
       return;
     case 'open-promo-modal':
@@ -3488,7 +3497,7 @@ function onProductImageClick(e, src) {
 
 function openLightbox(e, src) {
   if(!src || src.length < 5) return;
-  e.stopPropagation(); 
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   history.pushState({modal: 'lightbox'}, document.title);
   const lb = document.getElementById("lightbox");
   const img = document.getElementById("lb-img");
