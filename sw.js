@@ -1,5 +1,5 @@
 // sw.js - V3.7.0 圖片快取修正版
-const CACHE_NAME = 'ttl-pwa-v92'; // index_v38_phaseB5_viewcontroller
+const CACHE_NAME = 'ttl-pwa-v93'; // index_v39_phaseB4_5_event_pure
 const IMAGE_CACHE_NAME = 'ttl-images-v2'; // 專門存圖片的快取
 const IMAGE_RETRY_PARAM = 'img_retry';
 const urlsToCache = [
